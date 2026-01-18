@@ -84,6 +84,12 @@ h1 {
   margin-bottom: 1.2em;
 }
 
+.tagline {
+  font-size: 0.95em;
+  color: #555;
+  margin-bottom: 1.1em;
+}
+
 .source {
   margin-top: 1.6em;
   font-size: 0.9em;
@@ -190,30 +196,32 @@ pre {
 
   function buildChapter(item, index) {
     const title = item.title || `Chapter ${index}`;
+    const titleText = escapeXml(title);
+    const titleMarkup = item.url
+      ? `<a href="${escapeXml(item.url)}">${titleText}</a>`
+      : titleText;
+    const tagline = item.tagline
+      ? `<p class="tagline">${escapeXml(item.tagline)}</p>`
+      : "";
     const byline = item.byline
       ? `<p class="byline">${escapeXml(item.byline)}</p>`
       : "";
     const content = item.content_html
       ? item.content_html
       : `<p>${escapeXml(item.content_text || "")}</p>`;
-    const source = item.url
-      ? `<p class="source">Source: <a href="${escapeXml(item.url)}">${escapeXml(
-          item.url
-        )}</a></p>`
-      : "";
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
   <head>
-    <title>${escapeXml(title)}</title>
+    <title>${titleText}</title>
     <link rel="stylesheet" type="text/css" href="../styles.css" />
   </head>
   <body>
     <article>
-      <h1>${escapeXml(title)}</h1>
+      <h1>${titleMarkup}</h1>
+      ${tagline}
       ${byline}
       ${content}
-      ${source}
     </article>
   </body>
 </html>`;

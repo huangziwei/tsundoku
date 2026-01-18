@@ -48,7 +48,7 @@
   async function listItems() {
     return withStore("readonly", async (store) => {
       const items = await requestToPromise(store.getAll());
-      items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      items.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
       return items;
     });
   }

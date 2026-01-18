@@ -3,6 +3,7 @@ const api = getBrowser();
 const statusEl = document.getElementById("status");
 const countEl = document.getElementById("queue-count");
 const saveButton = document.getElementById("save-page");
+const exportAllButton = document.getElementById("export-all");
 const openButton = document.getElementById("open-library");
 
 saveButton.addEventListener("click", async () => {
@@ -31,6 +32,28 @@ openButton.addEventListener("click", () => {
   api.tabs.create({ url: api.runtime.getURL("pages/library.html") });
 });
 
+exportAllButton.addEventListener("click", async () => {
+  setStatus("Building EPUB...");
+  exportAllButton.disabled = true;
+  saveButton.disabled = true;
+
+  try {
+    const response = await api.runtime.sendMessage({
+      type: "queue/export",
+      title: "Tsundoku Queue"
+    });
+    if (!response?.ok) {
+      throw new Error(response?.error || "Export failed");
+    }
+    setStatus(`Exported ${response.filename}`);
+  } catch (error) {
+    setStatus(error.message || "Export failed");
+  } finally {
+    exportAllButton.disabled = false;
+    saveButton.disabled = false;
+  }
+});
+
 async function loadCount() {
   try {
     const response = await api.runtime.sendMessage({ type: "queue/count" });
@@ -45,6 +68,7 @@ async function loadCount() {
 function updateCount(count = 0) {
   const label = count === 1 ? "1 item" : `${count} items`;
   countEl.textContent = label;
+  exportAllButton.disabled = count === 0;
 }
 
 function setStatus(text) {

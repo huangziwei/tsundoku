@@ -6,14 +6,12 @@ const countEl = document.getElementById("library-count");
 const statusEl = document.getElementById("status");
 const titleInput = document.getElementById("collection-title");
 const exportSelectedButton = document.getElementById("export-selected");
-const exportAllButton = document.getElementById("export-all");
 const refreshButton = document.getElementById("refresh");
 
 let items = [];
 let selectedIds = new Set();
 
 exportSelectedButton.addEventListener("click", () => exportQueue(true));
-exportAllButton.addEventListener("click", () => exportQueue(false));
 refreshButton.addEventListener("click", () => loadItems());
 
 async function loadItems() {
@@ -154,7 +152,6 @@ async function exportQueue(onlySelected) {
 
   setStatus("Building EPUB...");
   exportSelectedButton.disabled = true;
-  exportAllButton.disabled = true;
 
   try {
     const response = await api.runtime.sendMessage({
@@ -172,7 +169,6 @@ async function exportQueue(onlySelected) {
     setStatus(error.message || "Export failed");
   } finally {
     exportSelectedButton.disabled = false;
-    exportAllButton.disabled = false;
   }
 }
 
@@ -183,7 +179,6 @@ function updateCount() {
 
 function updateExportButtons() {
   exportSelectedButton.disabled = selectedIds.size === 0;
-  exportAllButton.disabled = items.length === 0;
 }
 
 function setStatus(text) {
