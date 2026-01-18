@@ -9,7 +9,7 @@
   },
   "background": {
     "scripts": ["utils/utils.js", "utils/db.js", "utils/epub.js", "background.js"],
-    "persistent": false
+    "persistent": true
   },
   "permissions": ["activeTab", "storage", "downloads", "tabs", "<all_urls>"],
   "content_scripts": [
