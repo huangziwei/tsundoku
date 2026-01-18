@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tsundoku Library</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <main>
+      <div class="panel">
+        <div class="row space-between">
+          <div>
+            <h1>Tsundoku Library</h1>
+            <p>Collect, curate, and export your saved reads.</p>
+          </div>
+          <span class="badge" id="library-count">0 items</span>
+        </div>
+        <label class="small" for="collection-title">Collection title</label>
+        <input
+          class="input"
+          id="collection-title"
+          placeholder="Weekend reads"
+          value="Tsundoku Queue"
+        />
+        <div class="toolbar">
+          <button class="primary" id="export-selected">Export selected</button>
+          <button class="secondary" id="export-all">Export all</button>
+          <button class="ghost" id="refresh">Refresh</button>
+        </div>
+        <div class="status" id="status">Idle</div>
+      </div>
+
+      <div class="list" id="queue-list"></div>
+    </main>
+    <script src="../utils/utils.js"></script>
+    <script src="library.js"></script>
+  </body>
+</html>
