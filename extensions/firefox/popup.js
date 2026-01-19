@@ -6,16 +6,25 @@ const listEl = document.getElementById("queue-list");
 const saveButton = document.getElementById("save-page");
 const exportAllButton = document.getElementById("export-all");
 const deleteAllButton = document.getElementById("delete-all");
+const queueSelect = document.getElementById("queue-select");
+const renameQueueButton = document.getElementById("rename-queue");
+const newQueueButton = document.getElementById("new-queue");
 
 let items = [];
+let queues = [];
+let activeQueueId = "";
+let isBusy = false;
+const STORAGE_ACTIVE_QUEUE_KEY = "activeQueueId";
 
 saveButton.addEventListener("click", async () => {
   setStatus("Saving...");
   setBusy(true);
 
   try {
+    await ensureActiveQueue();
     const response = await api.runtime.sendMessage({
-      type: "queue/save-active"
+      type: "queue/save-active",
+      queueId: activeQueueId
     });
 
     if (!response?.ok) {
@@ -23,7 +32,7 @@ saveButton.addEventListener("click", async () => {
     }
 
     await loadItems({ quiet: true });
-    setStatus("Saved to queue");
+    setStatus(`Saved to ${getActiveQueueLabel()}`);
   } catch (error) {
     setStatus(error.message || "Unable to save");
   } finally {
@@ -36,9 +45,12 @@ exportAllButton.addEventListener("click", async () => {
   setBusy(true);
 
   try {
+    await ensureActiveQueue();
+    const queueName = getActiveQueueName();
     const response = await api.runtime.sendMessage({
       type: "queue/export",
-      title: "To Be Read"
+      queueId: activeQueueId,
+      title: queueName || "To Be Read"
     });
     if (!response?.ok) {
       throw new Error(response?.error || "Export failed");
@@ -55,7 +67,13 @@ deleteAllButton.addEventListener("click", async () => {
   if (!items.length) {
     return;
   }
-  if (!window.confirm("Delete all saved items? This cannot be undone.")) {
+  const queueName = getActiveQueueName();
+  const label = queueName ? `"${queueName}"` : "this queue";
+  if (
+    !window.confirm(
+      `Delete all saved items from ${label}? This cannot be undone.`
+    )
+  ) {
     return;
   }
 
@@ -63,7 +81,11 @@ deleteAllButton.addEventListener("click", async () => {
   setBusy(true);
 
   try {
-    const response = await api.runtime.sendMessage({ type: "queue/clear" });
+    await ensureActiveQueue();
+    const response = await api.runtime.sendMessage({
+      type: "queue/clear",
+      queueId: activeQueueId
+    });
     if (!response?.ok) {
       throw new Error(response?.error || "Unable to clear queue");
     }
@@ -76,12 +98,91 @@ deleteAllButton.addEventListener("click", async () => {
   }
 });
 
+queueSelect.addEventListener("change", () => {
+  switchQueue(queueSelect.value);
+});
+
+renameQueueButton.addEventListener("click", async () => {
+  const queue = getActiveQueue();
+  if (!queue) {
+    return;
+  }
+  const name = window.prompt("Rename queue", queue.name || "");
+  if (name === null) {
+    return;
+  }
+  const trimmed = name.trim();
+  if (!trimmed || trimmed === queue.name) {
+    setStatus("Queue name unchanged");
+    return;
+  }
+
+  setStatus("Renaming queue...");
+  setBusy(true);
+
+  try {
+    const response = await api.runtime.sendMessage({
+      type: "queues/rename",
+      id: queue.id,
+      name: trimmed
+    });
+    if (!response?.ok) {
+      throw new Error(response?.error || "Unable to rename queue");
+    }
+    await loadQueues();
+    renderList();
+    setStatus("Queue renamed");
+  } catch (error) {
+    setStatus(error.message || "Unable to rename queue");
+  } finally {
+    setBusy(false);
+  }
+});
+
+newQueueButton.addEventListener("click", async () => {
+  const name = window.prompt("New queue name", "");
+  if (name === null) {
+    return;
+  }
+  const trimmed = name.trim();
+  if (!trimmed) {
+    setStatus("Queue name is required");
+    return;
+  }
+
+  setStatus("Creating queue...");
+  setBusy(true);
+
+  try {
+    const response = await api.runtime.sendMessage({
+      type: "queues/create",
+      name: trimmed
+    });
+    if (!response?.ok) {
+      throw new Error(response?.error || "Unable to create queue");
+    }
+    await loadQueues();
+    await setActiveQueue(response.queue.id, { force: true });
+    setStatus("Queue created");
+  } catch (error) {
+    setStatus(error.message || "Unable to create queue");
+  } finally {
+    setBusy(false);
+  }
+});
+
 async function loadItems({ quiet = false } = {}) {
   if (!quiet) {
     setStatus("Loading...");
   }
   try {
-    const response = await api.runtime.sendMessage({ type: "queue/list" });
+    if (!activeQueueId) {
+      await loadQueues({ initial: true });
+    }
+    const response = await api.runtime.sendMessage({
+      type: "queue/list",
+      queueId: activeQueueId
+    });
     if (!response?.ok) {
       throw new Error(response?.error || "Unable to load queue");
     }
@@ -92,7 +193,116 @@ async function loadItems({ quiet = false } = {}) {
       setStatus("Ready");
     }
   } catch (error) {
+    if (!quiet) {
+      setStatus(error.message || "Unable to load queue");
+    }
+    throw error;
+  }
+}
+
+async function loadQueues({ initial = false } = {}) {
+  const response = await api.runtime.sendMessage({ type: "queues/list" });
+  if (!response?.ok) {
+    throw new Error(response?.error || "Unable to load queues");
+  }
+  queues = response.queues || [];
+  const defaultId = response.defaultQueueId || queues[0]?.id || "";
+  let selectedId = activeQueueId;
+  let storedId = "";
+  if (initial) {
+    storedId = await readActiveQueue();
+    if (storedId) {
+      selectedId = storedId;
+    }
+  }
+  if (!selectedId || !queues.some((queue) => queue.id === selectedId)) {
+    selectedId = defaultId;
+  }
+  activeQueueId = selectedId;
+  renderQueueSelect();
+  if (initial && activeQueueId && activeQueueId !== storedId) {
+    await saveActiveQueue(activeQueueId);
+  }
+}
+
+function renderQueueSelect() {
+  queueSelect.innerHTML = "";
+  queues.forEach((queue) => {
+    const option = document.createElement("option");
+    option.value = queue.id;
+    option.textContent = queue.name;
+    queueSelect.appendChild(option);
+  });
+  if (activeQueueId) {
+    queueSelect.value = activeQueueId;
+  }
+  syncControls();
+}
+
+async function setActiveQueue(queueId, { persist = true, force = false } = {}) {
+  if (!queueId) {
+    return;
+  }
+  if (!force && queueId === activeQueueId) {
+    queueSelect.value = queueId;
+    return;
+  }
+  activeQueueId = queueId;
+  queueSelect.value = queueId;
+  if (persist) {
+    await saveActiveQueue(queueId);
+  }
+  await loadItems({ quiet: true });
+}
+
+async function switchQueue(queueId) {
+  setStatus("Loading...");
+  setBusy(true);
+  try {
+    await setActiveQueue(queueId);
+    setStatus("Ready");
+  } catch (error) {
     setStatus(error.message || "Unable to load queue");
+  } finally {
+    setBusy(false);
+  }
+}
+
+function getActiveQueue() {
+  return queues.find((queue) => queue.id === activeQueueId) || null;
+}
+
+function getActiveQueueName() {
+  const queue = getActiveQueue();
+  return queue?.name || "";
+}
+
+function getActiveQueueLabel(fallback = "queue") {
+  return getActiveQueueName() || fallback;
+}
+
+async function saveActiveQueue(queueId) {
+  if (!api.storage?.local) {
+    return;
+  }
+  await api.storage.local.set({ [STORAGE_ACTIVE_QUEUE_KEY]: queueId });
+}
+
+async function readActiveQueue() {
+  if (!api.storage?.local) {
+    return "";
+  }
+  const stored = await api.storage.local.get(STORAGE_ACTIVE_QUEUE_KEY);
+  return stored?.[STORAGE_ACTIVE_QUEUE_KEY] || "";
+}
+
+async function ensureActiveQueue() {
+  if (activeQueueId) {
+    return;
+  }
+  await loadQueues({ initial: true });
+  if (!activeQueueId) {
+    throw new Error("No queue available");
   }
 }
 
@@ -102,7 +312,10 @@ function renderList() {
   if (!items.length) {
     const empty = document.createElement("div");
     empty.className = "empty";
-    empty.textContent = "Your queue is empty. Save a page to get started.";
+    const queueName = getActiveQueueName();
+    empty.textContent = queueName
+      ? `No items in "${queueName}". Save a page to get started.`
+      : "Your queue is empty. Save a page to get started.";
     listEl.appendChild(empty);
     return;
   }
@@ -347,19 +560,25 @@ async function deleteItem(id) {
 function updateCount() {
   const label = items.length === 1 ? "1 item" : `${items.length} items`;
   countEl.textContent = label;
-  const hasItems = items.length > 0;
-  exportAllButton.disabled = !hasItems;
-  deleteAllButton.disabled = !hasItems;
+  syncControls();
 }
 
 function setStatus(text) {
   statusEl.textContent = text;
 }
 
-function setBusy(isBusy) {
+function setBusy(value) {
+  isBusy = value;
+  syncControls();
+}
+
+function syncControls() {
   saveButton.disabled = isBusy;
   exportAllButton.disabled = isBusy || items.length === 0;
   deleteAllButton.disabled = isBusy || items.length === 0;
+  queueSelect.disabled = isBusy || queues.length === 0;
+  renameQueueButton.disabled = isBusy || queues.length === 0;
+  newQueueButton.disabled = isBusy;
 }
 
 async function moveItem(fromIndex, delta) {
@@ -379,7 +598,8 @@ async function persistOrder(orderedIds) {
   try {
     const response = await api.runtime.sendMessage({
       type: "queue/reorder",
-      orderedIds
+      orderedIds,
+      queueId: activeQueueId
     });
     if (!response?.ok) {
       throw new Error(response?.error || "Unable to reorder");
@@ -393,4 +613,18 @@ async function persistOrder(orderedIds) {
   }
 }
 
-loadItems();
+async function init() {
+  setStatus("Loading...");
+  setBusy(true);
+  try {
+    await loadQueues({ initial: true });
+    await loadItems({ quiet: true });
+    setStatus("Ready");
+  } catch (error) {
+    setStatus(error.message || "Unable to load queues");
+  } finally {
+    setBusy(false);
+  }
+}
+
+init();

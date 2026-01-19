@@ -1,14 +1,20 @@
 const {
   addItem,
   countItems,
-  clearItems,
+  deleteItemsByQueue,
   deleteItem,
   listItems,
+  listQueues,
+  addQueue,
+  renameQueue,
+  getQueue,
+  ensureDefaultQueue,
   makeExcerpt,
   wordCount,
   slugify,
   buildEpub,
-  getBrowser
+  getBrowser,
+  DEFAULT_QUEUE_ID
 } = Tsundoku;
 
 const api = getBrowser();
@@ -42,25 +48,32 @@ api.downloads.onChanged.addListener((delta) => {
 async function handleMessage(message) {
   switch (message.type) {
     case "queue/save-active":
-      return saveActiveTab();
+      return saveActiveTab(message.queueId);
     case "queue/list":
-      return listQueue();
+      return listQueue(message.queueId);
     case "queue/count":
-      return getCount();
+      return getCount(message.queueId);
     case "queue/delete":
       return removeItem(message.id);
     case "queue/clear":
-      return clearQueue();
+      return clearQueue(message.queueId);
     case "queue/reorder":
-      return reorderQueue(message.orderedIds);
+      return reorderQueue(message.orderedIds, message.queueId);
     case "queue/export":
       return exportQueue(message);
+    case "queues/list":
+      return listQueuesMessage();
+    case "queues/create":
+      return createQueue(message.name);
+    case "queues/rename":
+      return renameQueueMessage(message.id, message.name);
     default:
       return { ok: false, error: "Unknown request" };
   }
 }
 
-async function saveActiveTab() {
+async function saveActiveTab(queueId) {
+  const resolvedQueueId = await resolveQueueId(queueId);
   const [tab] = await api.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.id) {
     return { ok: false, error: "No active tab found" };
@@ -90,6 +103,7 @@ async function saveActiveTab() {
     site: payload.site,
     created_at: now,
     order: Date.now(),
+    queue_id: resolvedQueueId,
     published_at: payload.published_at,
     content_html: payload.content_html,
     content_text: payload.content_text,
@@ -100,18 +114,20 @@ async function saveActiveTab() {
   };
 
   await addItem(item);
-  const count = await countItems();
+  const count = await countItems(resolvedQueueId);
 
   return { ok: true, item, count };
 }
 
-async function listQueue() {
-  const items = await listItems();
+async function listQueue(queueId) {
+  const resolvedQueueId = await resolveQueueId(queueId);
+  const items = await listItems(resolvedQueueId);
   return { ok: true, items };
 }
 
-async function getCount() {
-  const count = await countItems();
+async function getCount(queueId) {
+  const resolvedQueueId = await resolveQueueId(queueId);
+  const count = await countItems(resolvedQueueId);
   return { ok: true, count };
 }
 
@@ -120,21 +136,22 @@ async function removeItem(id) {
     return { ok: false, error: "Missing item id" };
   }
   await deleteItem(id);
-  const count = await countItems();
+  return { ok: true };
+}
+
+async function clearQueue(queueId) {
+  const resolvedQueueId = await resolveQueueId(queueId);
+  await deleteItemsByQueue(resolvedQueueId);
+  const count = await countItems(resolvedQueueId);
   return { ok: true, count };
 }
 
-async function clearQueue() {
-  await clearItems();
-  const count = await countItems();
-  return { ok: true, count };
-}
-
-async function reorderQueue(orderedIds) {
+async function reorderQueue(orderedIds, queueId) {
   if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
     return { ok: false, error: "Missing order list" };
   }
-  const items = await listItems();
+  const resolvedQueueId = await resolveQueueId(queueId);
+  const items = await listItems(resolvedQueueId);
   const itemMap = new Map(items.map((item) => [item.id, item]));
   const ordered = [];
 
@@ -160,11 +177,9 @@ async function reorderQueue(orderedIds) {
   return { ok: true };
 }
 
-async function exportQueue({ ids = [], title = "To Be Read" } = {}) {
-  const items = await listItems();
-  const selected = ids.length
-    ? items.filter((item) => ids.includes(item.id))
-    : items;
+async function exportQueue({ queueId, title = "To Be Read" } = {}) {
+  const resolvedQueueId = await resolveQueueId(queueId);
+  const selected = await listItems(resolvedQueueId);
 
   if (!selected.length) {
     return { ok: false, error: "No items to export" };
@@ -183,6 +198,59 @@ async function exportQueue({ ids = [], title = "To Be Read" } = {}) {
   await downloadArrayBuffer(buffer, filename);
 
   return { ok: true, filename };
+}
+
+async function listQueuesMessage() {
+  const queues = await listQueues();
+  const defaultQueue = await ensureDefaultQueue();
+  return { ok: true, queues, defaultQueueId: defaultQueue.id };
+}
+
+async function createQueue(name) {
+  const cleanName = String(name || "").trim();
+  if (!cleanName) {
+    return { ok: false, error: "Queue name is required" };
+  }
+  const queues = await listQueues();
+  const conflict = queues.some(
+    (queue) => queue.name.toLowerCase() === cleanName.toLowerCase()
+  );
+  if (conflict) {
+    return { ok: false, error: "Queue name already exists" };
+  }
+  const queue = await addQueue(cleanName);
+  return { ok: true, queue };
+}
+
+async function renameQueueMessage(id, name) {
+  const cleanName = String(name || "").trim();
+  if (!id || !cleanName) {
+    return { ok: false, error: "Queue name is required" };
+  }
+  const queues = await listQueues();
+  const conflict = queues.some(
+    (queue) =>
+      queue.id !== id && queue.name.toLowerCase() === cleanName.toLowerCase()
+  );
+  if (conflict) {
+    return { ok: false, error: "Queue name already exists" };
+  }
+  const updated = await renameQueue(id, cleanName);
+  if (!updated) {
+    return { ok: false, error: "Queue not found" };
+  }
+  return { ok: true, queue: updated };
+}
+
+async function resolveQueueId(queueId) {
+  if (queueId) {
+    const queue = await getQueue(queueId);
+    if (queue) {
+      return queue.id;
+    }
+  }
+  const fallback = await ensureDefaultQueue();
+  return fallback?.id || DEFAULT_QUEUE_ID;
 }
 
 async function downloadArrayBuffer(buffer, filename) {

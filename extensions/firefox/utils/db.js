@@ -3,8 +3,11 @@
   const Tsundoku = root.Tsundoku || (root.Tsundoku = {});
 
   const DB_NAME = "tsundoku_queue";
-  const DB_VERSION = 1;
-  const STORE = "items";
+  const DB_VERSION = 2;
+  const STORE_ITEMS = "items";
+  const STORE_QUEUES = "queues";
+  const DEFAULT_QUEUE_ID = "default";
+  const DEFAULT_QUEUE_NAME = "To Be Read";
 
   function requestToPromise(request) {
     return new Promise((resolve, reject) => {
@@ -19,20 +22,84 @@
       request.onerror = () => reject(request.error);
       request.onupgradeneeded = () => {
         const db = request.result;
-        if (!db.objectStoreNames.contains(STORE)) {
-          const store = db.createObjectStore(STORE, { keyPath: "id" });
-          store.createIndex("created_at", "created_at");
+        const tx = request.transaction;
+        let itemStore;
+
+        if (!db.objectStoreNames.contains(STORE_ITEMS)) {
+          itemStore = db.createObjectStore(STORE_ITEMS, { keyPath: "id" });
+          itemStore.createIndex("created_at", "created_at");
+        } else if (tx) {
+          itemStore = tx.objectStore(STORE_ITEMS);
+        }
+
+        if (itemStore) {
+          if (!itemStore.indexNames.contains("created_at")) {
+            itemStore.createIndex("created_at", "created_at");
+          }
+          if (!itemStore.indexNames.contains("queue_id")) {
+            itemStore.createIndex("queue_id", "queue_id");
+          }
+        }
+
+        if (!db.objectStoreNames.contains(STORE_QUEUES)) {
+          const queueStore = db.createObjectStore(STORE_QUEUES, { keyPath: "id" });
+          queueStore.createIndex("created_at", "created_at");
+          queueStore.createIndex("name", "name");
+          queueStore.put({
+            id: DEFAULT_QUEUE_ID,
+            name: DEFAULT_QUEUE_NAME,
+            created_at: new Date().toISOString()
+          });
+        } else if (tx) {
+          const queueStore = tx.objectStore(STORE_QUEUES);
+          const requestDefault = queueStore.get(DEFAULT_QUEUE_ID);
+          requestDefault.onsuccess = () => {
+            if (requestDefault.result) {
+              return;
+            }
+            queueStore.put({
+              id: DEFAULT_QUEUE_ID,
+              name: DEFAULT_QUEUE_NAME,
+              created_at: new Date().toISOString()
+            });
+          };
+        }
+
+        if (itemStore) {
+          const cursorRequest = itemStore.openCursor();
+          cursorRequest.onsuccess = () => {
+            const cursor = cursorRequest.result;
+            if (!cursor) {
+              return;
+            }
+            const value = cursor.value;
+            let changed = false;
+            if (!value.queue_id) {
+              value.queue_id = DEFAULT_QUEUE_ID;
+              changed = true;
+            }
+            if (typeof value.order !== "number" || !Number.isFinite(value.order)) {
+              const created = Date.parse(value.created_at || "");
+              value.order = Number.isNaN(created) ? Date.now() : created;
+              changed = true;
+            }
+            if (changed) {
+              cursor.update(value);
+            }
+            cursor.continue();
+          };
         }
       };
       request.onsuccess = () => resolve(request.result);
     });
   }
 
-  async function withStore(mode, operation) {
+  async function withStores(storeNames, mode, operation) {
     const db = await openDb();
-    const tx = db.transaction(STORE, mode);
-    const store = tx.objectStore(STORE);
-    const result = await operation(store);
+    const names = Array.isArray(storeNames) ? storeNames : [storeNames];
+    const tx = db.transaction(names, mode);
+    const stores = names.map((name) => tx.objectStore(name));
+    const result = await operation(...stores);
     await new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
@@ -42,19 +109,29 @@
   }
 
   async function addItem(item) {
-    return withStore("readwrite", (store) => requestToPromise(store.put(item)));
+    return withStores(STORE_ITEMS, "readwrite", (store) =>
+      requestToPromise(store.put(item))
+    );
   }
 
-  async function listItems() {
-    return withStore("readonly", async (store) => {
-      const items = await requestToPromise(store.getAll());
+  async function listItems(queueId = "") {
+    return withStores(STORE_ITEMS, "readonly", async (store) => {
+      let items = [];
+      if (queueId && store.indexNames.contains("queue_id")) {
+        items = await requestToPromise(store.index("queue_id").getAll(queueId));
+      } else {
+        items = await requestToPromise(store.getAll());
+        if (queueId) {
+          items = items.filter((item) => item.queue_id === queueId);
+        }
+      }
       items.sort((a, b) => getOrderValue(a) - getOrderValue(b));
       return items;
     });
   }
 
   async function getItemsByIds(ids) {
-    return withStore("readonly", async (store) => {
+    return withStores(STORE_ITEMS, "readonly", async (store) => {
       const results = await Promise.all(
         ids.map((id) => requestToPromise(store.get(id)))
       );
@@ -63,15 +140,120 @@
   }
 
   async function deleteItem(id) {
-    return withStore("readwrite", (store) => requestToPromise(store.delete(id)));
+    return withStores(STORE_ITEMS, "readwrite", (store) =>
+      requestToPromise(store.delete(id))
+    );
   }
 
   async function clearItems() {
-    return withStore("readwrite", (store) => requestToPromise(store.clear()));
+    return withStores(STORE_ITEMS, "readwrite", (store) =>
+      requestToPromise(store.clear())
+    );
   }
 
-  async function countItems() {
-    return withStore("readonly", (store) => requestToPromise(store.count()));
+  async function countItems(queueId = "") {
+    return withStores(STORE_ITEMS, "readonly", (store) => {
+      if (queueId && store.indexNames.contains("queue_id")) {
+        return requestToPromise(store.index("queue_id").count(queueId));
+      }
+      if (queueId) {
+        return requestToPromise(store.getAll()).then(
+          (items) => items.filter((item) => item.queue_id === queueId).length
+        );
+      }
+      return requestToPromise(store.count());
+    });
+  }
+
+  async function deleteItemsByQueue(queueId) {
+    if (!queueId) {
+      return 0;
+    }
+    return withStores(STORE_ITEMS, "readwrite", (store) => {
+      return new Promise((resolve, reject) => {
+        if (!store.indexNames.contains("queue_id")) {
+          reject(new Error("Queue index missing"));
+          return;
+        }
+        let removed = 0;
+        const range = IDBKeyRange.only(queueId);
+        const request = store.index("queue_id").openCursor(range);
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) {
+            resolve(removed);
+            return;
+          }
+          cursor.delete();
+          removed += 1;
+          cursor.continue();
+        };
+        request.onerror = () => reject(request.error);
+      });
+    });
+  }
+
+  async function listQueues() {
+    await ensureDefaultQueue();
+    return withStores(STORE_QUEUES, "readonly", async (store) => {
+      const queues = await requestToPromise(store.getAll());
+      queues.sort((a, b) => {
+        if (a.id === DEFAULT_QUEUE_ID) {
+          return -1;
+        }
+        if (b.id === DEFAULT_QUEUE_ID) {
+          return 1;
+        }
+        return new Date(a.created_at) - new Date(b.created_at);
+      });
+      return queues;
+    });
+  }
+
+  async function addQueue(name) {
+    const queue = {
+      id: makeQueueId(),
+      name: String(name || "").trim(),
+      created_at: new Date().toISOString()
+    };
+    await withStores(STORE_QUEUES, "readwrite", (store) =>
+      requestToPromise(store.put(queue))
+    );
+    return queue;
+  }
+
+  async function renameQueue(id, name) {
+    return withStores(STORE_QUEUES, "readwrite", async (store) => {
+      const queue = await requestToPromise(store.get(id));
+      if (!queue) {
+        return null;
+      }
+      queue.name = String(name || "").trim();
+      await requestToPromise(store.put(queue));
+      return queue;
+    });
+  }
+
+  async function getQueue(id) {
+    return withStores(STORE_QUEUES, "readonly", (store) =>
+      requestToPromise(store.get(id))
+    );
+  }
+
+  async function ensureDefaultQueue() {
+    return withStores(STORE_QUEUES, "readwrite", async (store) => {
+      const existing = await requestToPromise(store.get(DEFAULT_QUEUE_ID));
+      if (existing) {
+        return existing;
+      }
+      const queue = {
+        id: DEFAULT_QUEUE_ID,
+        name: DEFAULT_QUEUE_NAME,
+        created_at: new Date().toISOString()
+      };
+      await requestToPromise(store.put(queue));
+      return queue;
+    });
   }
 
   Tsundoku.addItem = addItem;
@@ -80,6 +262,13 @@
   Tsundoku.deleteItem = deleteItem;
   Tsundoku.clearItems = clearItems;
   Tsundoku.countItems = countItems;
+  Tsundoku.deleteItemsByQueue = deleteItemsByQueue;
+  Tsundoku.listQueues = listQueues;
+  Tsundoku.addQueue = addQueue;
+  Tsundoku.renameQueue = renameQueue;
+  Tsundoku.getQueue = getQueue;
+  Tsundoku.ensureDefaultQueue = ensureDefaultQueue;
+  Tsundoku.DEFAULT_QUEUE_ID = DEFAULT_QUEUE_ID;
 
   function getOrderValue(item) {
     if (typeof item.order === "number" && Number.isFinite(item.order)) {
@@ -87,5 +276,12 @@
     }
     const created = Date.parse(item.created_at || "");
     return Number.isNaN(created) ? 0 : created;
+  }
+
+  function makeQueueId() {
+    if (crypto?.randomUUID) {
+      return `queue-${crypto.randomUUID()}`;
+    }
+    return `queue-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 })();

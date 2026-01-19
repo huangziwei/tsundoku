@@ -14,9 +14,15 @@
           <span class="badge" id="queue-count">0 items</span>
         </div>
         <p>Save the current page and export your reading queue.</p>
+        <label class="small" for="queue-select">Queue</label>
+        <div class="row queue-row">
+          <select class="input" id="queue-select"></select>
+          <button class="ghost" id="rename-queue">Rename</button>
+          <button class="ghost" id="new-queue">New</button>
+        </div>
         <div class="toolbar">
           <button class="primary" id="save-page">Save page</button>
-          <button class="secondary" id="export-all">Export all</button>
+          <button class="secondary" id="export-all">Export queue</button>
           <button class="ghost" id="delete-all">Delete all</button>
         </div>
         <div class="status" id="status">Idle</div>

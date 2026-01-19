@@ -260,6 +260,20 @@ button:disabled {
   margin-top: 10px;
 }
 
+.queue-row {
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.queue-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+select.input {
+  background-color: #fff;
+}
+
 .empty {
   text-align: center;
   padding: 28px 12px;
