@@ -484,7 +484,7 @@ function buildPreviewContent(item) {
   const content = document.createElement("div");
   const html = item.content_html || "";
   if (html.trim()) {
-    content.innerHTML = html;
+    appendHtmlSafely(content, html);
   } else if (item.content_text) {
     const paragraph = document.createElement("p");
     paragraph.textContent = item.content_text;
@@ -497,6 +497,47 @@ function buildPreviewContent(item) {
   article.appendChild(content);
 
   return article;
+}
+
+function appendHtmlSafely(container, html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  const body = doc.body;
+  sanitizePreviewNodes(body);
+  const fragment = document.createDocumentFragment();
+  while (body.firstChild) {
+    fragment.appendChild(body.firstChild);
+  }
+  container.appendChild(fragment);
+}
+
+function sanitizePreviewNodes(rootNode) {
+  if (!rootNode) {
+    return;
+  }
+  const blocked = [
+    "script",
+    "style",
+    "noscript",
+    "iframe",
+    "form",
+    "button",
+    "input",
+    "textarea",
+    "select"
+  ];
+  rootNode.querySelectorAll(blocked.join(", ")).forEach((el) => el.remove());
+  rootNode.querySelectorAll("*").forEach((el) => {
+    Array.from(el.attributes).forEach((attr) => {
+      const name = attr.name.toLowerCase();
+      if (name.startsWith("on") || name === "style") {
+        el.removeAttribute(attr.name);
+      }
+      if ((name === "href" || name === "src") && /^javascript:/i.test(attr.value)) {
+        el.removeAttribute(attr.name);
+      }
+    });
+  });
 }
 
 function formatByline(value) {
