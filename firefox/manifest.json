@@ -21,6 +21,7 @@
         "parsers/wikipedia.js",
         "parsers/guardian.js",
         "parsers/psyche.js",
+        "parsers/nature.js",
         "content.js"
       ],
       "run_at": "document_idle"
