@@ -9,7 +9,7 @@ Save articles from your browser and export them as a single EPUB for TTS or offl
 ## Firefox 
 1. Open `about:debugging#/runtime/this-firefox`.
 2. Click "Load Temporary Add-on".
-3. Select `firefox/manifest.json` or `dist/tsundoku-firefox.xpi`.
+3. Select `firefox/manifest.json`.
 
 ## Safari 
 Safari Web Extensions must be bundled inside a macOS wrapper app. For personal use, build and run the wrapper app once, then enable the extension in Safari.
