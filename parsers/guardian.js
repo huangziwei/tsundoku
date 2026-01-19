@@ -11,13 +11,19 @@
     ((text) => String(text || "").replace(/\s+/g, " ").trim());
   const getMetaContent = ParserUtils.getMetaContent || (() => "");
 
+  const sanitizeContent = ParserUtils.sanitizeContent || ((node) => node);
+  const pruneEmptyBlocks = ParserUtils.pruneEmptyBlocks || (() => {});
+
   registerParser({
     host: /(^|\.)theguardian\.com$/,
-    extract: extractGuardian
+    extract: extractGuardian,
+    sanitize: sanitizeGuardian
   });
 
   function extractGuardian() {
     const contentNode =
+      document.querySelector("#maincontent") ||
+      document.querySelector("main#maincontent") ||
       document.querySelector("article [data-gu-name='body']") ||
       document.querySelector("article [data-test-id='article-body']") ||
       document.querySelector("article [data-component='article-body']") ||
@@ -119,5 +125,15 @@
       }
     }
     return "";
+  }
+
+  function sanitizeGuardian(node) {
+    const rootNode = sanitizeContent(node);
+    rootNode.querySelector("#sign-in-gate")?.remove();
+    rootNode.querySelectorAll("[data-print-layout='hide']").forEach((el) => {
+      el.remove();
+    });
+    pruneEmptyBlocks(rootNode);
+    return rootNode;
   }
 })();

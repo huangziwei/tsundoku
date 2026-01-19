@@ -160,7 +160,7 @@ async function reorderQueue(orderedIds) {
   return { ok: true };
 }
 
-async function exportQueue({ ids = [], title = "Tsundoku" } = {}) {
+async function exportQueue({ ids = [], title = "To Be Read" } = {}) {
   const items = await listItems();
   const selected = ids.length
     ? items.filter((item) => ids.includes(item.id))
@@ -170,12 +170,16 @@ async function exportQueue({ ids = [], title = "Tsundoku" } = {}) {
     return { ok: false, error: "No items to export" };
   }
 
-  const safeTitle = title.trim() || "Tsundoku";
-  const fileBase = slugify(safeTitle) || "tsundoku";
+  const safeTitle = title.trim() || "To Be Read";
+  const fileBase = slugify(safeTitle) || "to-be-read";
   const dateStamp = new Date().toISOString().slice(0, 10);
   const filename = `${fileBase}-${dateStamp}.epub`;
 
-  const buffer = await buildEpub(selected, { title: safeTitle });
+  const buffer = await buildEpub(selected, {
+    title: safeTitle,
+    creator: "Tsundoku",
+    exportedAt: dateStamp
+  });
   await downloadArrayBuffer(buffer, filename);
 
   return { ok: true, filename };

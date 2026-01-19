@@ -8,9 +8,15 @@
     return Tsundoku.escapeXml(value);
   }
 
-  async function buildEpub(items, { title = "Tsundoku" } = {}) {
+  async function buildEpub(
+    items,
+    { title = "To Be Read", creator = "Tsundoku", exportedAt = "" } = {}
+  ) {
     const bookId = makeBookId();
-    const modified = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+    const exportDate = exportedAt || new Date().toISOString().slice(0, 10);
+    const modified = `${exportDate}T00:00:00Z`;
+    const coverImage = await buildCoverImage({ title, creator, exportDate });
+    const coverPage = buildCoverPage(title);
 
     const chapters = items.map((item, index) => {
       const chapterId = `chap-${index + 1}`;
@@ -36,8 +42,18 @@
         data: encoder.encode(buildStyles())
       },
       {
+        name: "OEBPS/cover.jpg",
+        data: coverImage
+      },
+      {
+        name: "OEBPS/cover.xhtml",
+        data: encoder.encode(coverPage)
+      },
+      {
         name: "OEBPS/content.opf",
-        data: encoder.encode(buildOpf(title, bookId, modified, chapters))
+        data: encoder.encode(
+          buildOpf(title, creator, exportDate, bookId, modified, chapters)
+        )
       },
       {
         name: "OEBPS/nav.xhtml",
@@ -115,8 +131,10 @@ pre {
 }`;
   }
 
-  function buildOpf(title, bookId, modified, chapters) {
+  function buildOpf(title, creator, exportDate, bookId, modified, chapters) {
     const manifestItems = [
+      `<item id="cover" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>`,
+      `<item id="cover-page" href="cover.xhtml" media-type="application/xhtml+xml"/>`,
       `<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>`,
       `<item id="toc" href="toc.ncx" media-type="application/x-dtbncx+xml"/>`,
       `<item id="css" href="styles.css" media-type="text/css"/>`,
@@ -126,16 +144,20 @@ pre {
       )
     ].join("\n    ");
 
-    const spineItems = chapters
-      .map((chapter) => `<itemref idref="${chapter.id}"/>`)
-      .join("\n    ");
+    const spineItems = [
+      `<itemref idref="cover-page"/>`,
+      ...chapters.map((chapter) => `<itemref idref="${chapter.id}"/>`)
+    ].join("\n    ");
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <package version="3.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
     <dc:identifier id="bookid">${escapeXml(bookId)}</dc:identifier>
     <dc:title>${escapeXml(title)}</dc:title>
+    <dc:creator>${escapeXml(creator)}</dc:creator>
+    <dc:date>${escapeXml(exportDate)}</dc:date>
     <dc:language>en</dc:language>
+    <meta name="cover" content="cover"/>
     <meta property="dcterms:modified">${escapeXml(modified)}</meta>
   </metadata>
   <manifest>
@@ -198,6 +220,143 @@ pre {
       ${navPoints}
   </navMap>
 </ncx>`;
+  }
+
+  function buildCoverPage(title) {
+    const safeTitle = escapeXml(title || "To Be Read");
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <title>${safeTitle}</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f7f4ef;
+      }
+      img {
+        max-width: 100%;
+        max-height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <img src="cover.jpg" alt="${safeTitle}" />
+  </body>
+</html>`;
+  }
+
+  async function buildCoverImage({ title, creator, exportDate }) {
+    const width = 1600;
+    const height = 2400;
+    const padding = 160;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return new Uint8Array();
+    }
+
+    ctx.fillStyle = "#f7f4ef";
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillStyle = "#d65a31";
+    ctx.fillRect(0, 0, width, 18);
+
+    const titleText = normalizeCoverText(title || "To Be Read");
+    ctx.fillStyle = "#1b1b1b";
+    ctx.font = '700 96px "Georgia", "Times New Roman", serif';
+    const titleLines = wrapText(ctx, titleText, width - padding * 2);
+    const titleLineHeight = 112;
+    let y = 420;
+    titleLines.forEach((line) => {
+      ctx.fillText(line, padding, y);
+      y += titleLineHeight;
+    });
+
+    const creatorText = normalizeCoverText(creator || "Tsundoku");
+    const metaY = Math.max(y + 160, height - 420);
+    ctx.fillStyle = "#2f4858";
+    ctx.font =
+      '600 44px "Alegreya Sans", "Gill Sans", "Trebuchet MS", sans-serif';
+    ctx.fillText(creatorText, padding, metaY);
+
+    if (exportDate) {
+      ctx.fillStyle = "#6b6b6b";
+      ctx.font =
+        '400 34px "Alegreya Sans", "Gill Sans", "Trebuchet MS", sans-serif';
+      ctx.fillText(normalizeCoverText(exportDate), padding, metaY + 56);
+    }
+
+    return canvasToJpegBytes(canvas);
+  }
+
+  function normalizeCoverText(text) {
+    return String(text || "").replace(/\s+/g, " ").trim();
+  }
+
+  function wrapText(ctx, text, maxWidth) {
+    const words = normalizeCoverText(text).split(" ");
+    const lines = [];
+    let current = "";
+
+    words.forEach((word) => {
+      const next = current ? `${current} ${word}` : word;
+      const width = ctx.measureText(next).width;
+      if (width > maxWidth && current) {
+        lines.push(current);
+        current = word;
+      } else {
+        current = next;
+      }
+    });
+
+    if (current) {
+      lines.push(current);
+    }
+
+    return lines;
+  }
+
+  function createCanvas(width, height) {
+    if (typeof OffscreenCanvas !== "undefined") {
+      return new OffscreenCanvas(width, height);
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    return canvas;
+  }
+
+  async function canvasToJpegBytes(canvas) {
+    let blob;
+    if (typeof canvas.convertToBlob === "function") {
+      blob = await canvas.convertToBlob({ type: "image/jpeg", quality: 0.92 });
+    } else if (typeof canvas.toDataURL === "function") {
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+      blob = dataUrlToBlob(dataUrl);
+    } else {
+      return new Uint8Array();
+    }
+    const buffer = await blob.arrayBuffer();
+    return new Uint8Array(buffer);
+  }
+
+  function dataUrlToBlob(dataUrl) {
+    const [meta, data] = dataUrl.split(",");
+    const match = meta.match(/data:([^;]+);base64/);
+    const mime = match ? match[1] : "application/octet-stream";
+    const binary = atob(data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: mime });
   }
 
   function buildChapter(item, index) {

@@ -38,7 +38,7 @@ exportAllButton.addEventListener("click", async () => {
   try {
     const response = await api.runtime.sendMessage({
       type: "queue/export",
-      title: "Tsundoku"
+      title: "To Be Read"
     });
     if (!response?.ok) {
       throw new Error(response?.error || "Export failed");
@@ -137,37 +137,13 @@ function buildItemRow(item, index) {
   const actions = document.createElement("div");
   actions.className = "item-actions";
 
-  const openButton = document.createElement("button");
-  openButton.className = "secondary";
-  openButton.textContent = "Open";
-  openButton.addEventListener("click", () => {
-    api.tabs.create({ url: item.url });
-  });
-
-  const upButton = document.createElement("button");
-  upButton.className = "ghost";
-  upButton.textContent = "Up";
-  upButton.disabled = index === 0;
-  upButton.addEventListener("click", () => moveItem(index, -1));
-
-  const downButton = document.createElement("button");
-  downButton.className = "ghost";
-  downButton.textContent = "Down";
-  downButton.disabled = index === items.length - 1;
-  downButton.addEventListener("click", () => moveItem(index, 1));
+  const preview = document.createElement("div");
+  preview.className = "preview";
+  preview.hidden = true;
 
   const previewButton = document.createElement("button");
   previewButton.className = "secondary";
   previewButton.textContent = "Preview";
-
-  const deleteButton = document.createElement("button");
-  deleteButton.className = "ghost";
-  deleteButton.textContent = "Delete";
-  deleteButton.addEventListener("click", () => deleteItem(item.id));
-
-  const preview = document.createElement("div");
-  preview.className = "preview";
-  preview.hidden = true;
 
   previewButton.addEventListener("click", () => {
     if (!preview.dataset.loaded) {
@@ -179,10 +155,38 @@ function buildItemRow(item, index) {
     previewButton.textContent = willShow ? "Hide" : "Preview";
   });
 
+  const openButton = document.createElement("button");
+  openButton.className = "secondary";
+  openButton.textContent = "Open";
+  openButton.addEventListener("click", () => {
+    api.tabs.create({ url: item.url });
+  });
+
+  const upButton = createIconButton({
+    label: "Move up",
+    path: "M12 5l-6 6h4v8h4v-8h4z",
+    disabled: index === 0,
+    onClick: () => moveItem(index, -1)
+  });
+
+  const downButton = createIconButton({
+    label: "Move down",
+    path: "M12 19l6-6h-4V5h-4v8H6z",
+    disabled: index === items.length - 1,
+    onClick: () => moveItem(index, 1)
+  });
+
+  const deleteButton = createIconButton({
+    label: "Delete",
+    path:
+      "M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2zm4 0h2v9h-2zM8 9h2v9H8z",
+    onClick: () => deleteItem(item.id)
+  });
+
+  actions.appendChild(previewButton);
   actions.appendChild(openButton);
   actions.appendChild(upButton);
   actions.appendChild(downButton);
-  actions.appendChild(previewButton);
   actions.appendChild(deleteButton);
 
   row.appendChild(content);
@@ -190,6 +194,30 @@ function buildItemRow(item, index) {
   row.appendChild(preview);
 
   return row;
+}
+
+function createIconButton({ label, path, onClick, disabled = false }) {
+  const button = document.createElement("button");
+  button.className = "ghost icon-button";
+  button.type = "button";
+  button.setAttribute("aria-label", label);
+  button.title = label;
+  button.disabled = disabled;
+  button.addEventListener("click", onClick);
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+
+  const iconPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  iconPath.setAttribute("d", path);
+  iconPath.setAttribute("fill", "currentColor");
+  svg.appendChild(iconPath);
+
+  button.appendChild(svg);
+
+  return button;
 }
 
 function buildPreviewContent(item) {

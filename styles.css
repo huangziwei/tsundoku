@@ -141,6 +141,22 @@ button:disabled {
   flex-direction: row;
   flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
+}
+
+.icon-button {
+  padding: 6px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-button svg {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 .preview {
