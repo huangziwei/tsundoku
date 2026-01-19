@@ -144,18 +144,85 @@ function buildItemRow(item) {
     api.tabs.create({ url: item.url });
   });
 
+  const previewButton = document.createElement("button");
+  previewButton.className = "secondary";
+  previewButton.textContent = "Preview";
+
   const deleteButton = document.createElement("button");
   deleteButton.className = "ghost";
   deleteButton.textContent = "Delete";
   deleteButton.addEventListener("click", () => deleteItem(item.id));
 
+  const preview = document.createElement("div");
+  preview.className = "preview";
+  preview.hidden = true;
+
+  previewButton.addEventListener("click", () => {
+    if (!preview.dataset.loaded) {
+      preview.appendChild(buildPreviewContent(item));
+      preview.dataset.loaded = "true";
+    }
+    const willShow = preview.hidden;
+    preview.hidden = !willShow;
+    previewButton.textContent = willShow ? "Hide" : "Preview";
+  });
+
   actions.appendChild(openButton);
+  actions.appendChild(previewButton);
   actions.appendChild(deleteButton);
 
   row.appendChild(content);
   row.appendChild(actions);
+  row.appendChild(preview);
 
   return row;
+}
+
+function buildPreviewContent(item) {
+  const article = document.createElement("article");
+
+  const title = document.createElement("h1");
+  const titleText = item.title || "Untitled";
+  if (item.url) {
+    const link = document.createElement("a");
+    link.href = item.url;
+    link.textContent = titleText;
+    title.appendChild(link);
+  } else {
+    title.textContent = titleText;
+  }
+  article.appendChild(title);
+
+  if (item.tagline) {
+    const tagline = document.createElement("p");
+    tagline.className = "tagline";
+    tagline.textContent = item.tagline;
+    article.appendChild(tagline);
+  }
+
+  if (item.byline) {
+    const byline = document.createElement("p");
+    byline.className = "byline";
+    byline.textContent = item.byline;
+    article.appendChild(byline);
+  }
+
+  const content = document.createElement("div");
+  const html = item.content_html || "";
+  if (html.trim()) {
+    content.innerHTML = html;
+  } else if (item.content_text) {
+    const paragraph = document.createElement("p");
+    paragraph.textContent = item.content_text;
+    content.appendChild(paragraph);
+  } else {
+    const paragraph = document.createElement("p");
+    paragraph.textContent = "No content available.";
+    content.appendChild(paragraph);
+  }
+  article.appendChild(content);
+
+  return article;
 }
 
 function buildMeta(item) {

@@ -137,6 +137,62 @@ button:disabled {
   grid-template-columns: 1fr auto;
 }
 
+.item.compact .item-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.preview {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-size: 12px;
+  line-height: 1.6;
+  font-family: "Georgia", "Times New Roman", serif;
+  color: #1b1b1b;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.preview h1 {
+  font-size: 1.1em;
+  margin: 0 0 0.4em;
+}
+
+.preview p {
+  margin: 0 0 0.9em;
+  color: inherit;
+}
+
+.preview .byline {
+  font-style: italic;
+  color: #555;
+  margin-bottom: 1.1em;
+}
+
+.preview .tagline {
+  font-size: 0.95em;
+  color: #555;
+  margin-bottom: 1em;
+}
+
+.preview blockquote {
+  margin: 1em 0;
+  padding-left: 1em;
+  border-left: 3px solid #d0c8bd;
+}
+
+.preview pre {
+  background: #f5f1ea;
+  padding: 0.8em;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
 .item-title {
   font-size: 16px;
   font-weight: 600;
