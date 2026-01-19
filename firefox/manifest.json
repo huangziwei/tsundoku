@@ -20,6 +20,7 @@
         "parsers/registry.js",
         "parsers/wikipedia.js",
         "parsers/guardian.js",
+        "parsers/psyche.js",
         "content.js"
       ],
       "run_at": "document_idle"
