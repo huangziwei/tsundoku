@@ -20,6 +20,7 @@ body {
   font-family: "Charter", "Iowan Old Style", "Palatino", serif;
   color: var(--ink);
   background: linear-gradient(120deg, #f7f4ef 0%, #f0eee8 60%, #f9f2e8 100%);
+  min-width: 360px;
 }
 
 main {

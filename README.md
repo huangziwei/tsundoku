@@ -14,7 +14,7 @@ Save articles from your browser and export them as a single EPUB for TTS or offl
 ## Safari 
 Safari Web Extensions must be bundled inside a macOS wrapper app. For personal use, build and run the wrapper app once, then enable the extension in Safari.
 
-1. Convert the extension (requires Xcode):
+1. Convert the Firefox extension with `xcrun`
    ```bash
    xcrun safari-web-extension-converter ./firefox \
      --project-location ./safari \
