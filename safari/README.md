@@ -1,3 +1,3 @@
-Safari port placeholder.
+Safari build output lives here after running the converter.
 
-Use this folder for the Safari WebExtension build output later.
+If you only need personal use, follow the Safari steps in `README.md` and keep the generated Xcode project local.
