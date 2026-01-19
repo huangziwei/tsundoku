@@ -48,7 +48,7 @@
   async function listItems() {
     return withStore("readonly", async (store) => {
       const items = await requestToPromise(store.getAll());
-      items.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      items.sort((a, b) => getOrderValue(a) - getOrderValue(b));
       return items;
     });
   }
@@ -80,4 +80,12 @@
   Tsundoku.deleteItem = deleteItem;
   Tsundoku.clearItems = clearItems;
   Tsundoku.countItems = countItems;
+
+  function getOrderValue(item) {
+    if (typeof item.order === "number" && Number.isFinite(item.order)) {
+      return item.order;
+    }
+    const created = Date.parse(item.created_at || "");
+    return Number.isNaN(created) ? 0 : created;
+  }
 })();

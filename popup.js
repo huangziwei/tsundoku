@@ -107,12 +107,12 @@ function renderList() {
     return;
   }
 
-  items.forEach((item) => {
-    listEl.appendChild(buildItemRow(item));
+  items.forEach((item, index) => {
+    listEl.appendChild(buildItemRow(item, index));
   });
 }
 
-function buildItemRow(item) {
+function buildItemRow(item, index) {
   const row = document.createElement("div");
   row.className = "item compact";
 
@@ -144,6 +144,18 @@ function buildItemRow(item) {
     api.tabs.create({ url: item.url });
   });
 
+  const upButton = document.createElement("button");
+  upButton.className = "ghost";
+  upButton.textContent = "Up";
+  upButton.disabled = index === 0;
+  upButton.addEventListener("click", () => moveItem(index, -1));
+
+  const downButton = document.createElement("button");
+  downButton.className = "ghost";
+  downButton.textContent = "Down";
+  downButton.disabled = index === items.length - 1;
+  downButton.addEventListener("click", () => moveItem(index, 1));
+
   const previewButton = document.createElement("button");
   previewButton.className = "secondary";
   previewButton.textContent = "Preview";
@@ -168,6 +180,8 @@ function buildItemRow(item) {
   });
 
   actions.appendChild(openButton);
+  actions.appendChild(upButton);
+  actions.appendChild(downButton);
   actions.appendChild(previewButton);
   actions.appendChild(deleteButton);
 
@@ -318,6 +332,37 @@ function setBusy(isBusy) {
   saveButton.disabled = isBusy;
   exportAllButton.disabled = isBusy || items.length === 0;
   deleteAllButton.disabled = isBusy || items.length === 0;
+}
+
+async function moveItem(fromIndex, delta) {
+  const toIndex = fromIndex + delta;
+  if (toIndex < 0 || toIndex >= items.length) {
+    return;
+  }
+  const reordered = items.slice();
+  const [moved] = reordered.splice(fromIndex, 1);
+  reordered.splice(toIndex, 0, moved);
+  await persistOrder(reordered.map((item) => item.id));
+}
+
+async function persistOrder(orderedIds) {
+  setStatus("Reordering...");
+  setBusy(true);
+  try {
+    const response = await api.runtime.sendMessage({
+      type: "queue/reorder",
+      orderedIds
+    });
+    if (!response?.ok) {
+      throw new Error(response?.error || "Unable to reorder");
+    }
+    await loadItems({ quiet: true });
+    setStatus("Ready");
+  } catch (error) {
+    setStatus(error.message || "Unable to reorder");
+  } finally {
+    setBusy(false);
+  }
 }
 
 loadItems();

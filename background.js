@@ -51,6 +51,8 @@ async function handleMessage(message) {
       return removeItem(message.id);
     case "queue/clear":
       return clearQueue();
+    case "queue/reorder":
+      return reorderQueue(message.orderedIds);
     case "queue/export":
       return exportQueue(message);
     default:
@@ -87,6 +89,7 @@ async function saveActiveTab() {
     byline: payload.byline,
     site: payload.site,
     created_at: now,
+    order: Date.now(),
     published_at: payload.published_at,
     content_html: payload.content_html,
     content_text: payload.content_text,
@@ -125,6 +128,36 @@ async function clearQueue() {
   await clearItems();
   const count = await countItems();
   return { ok: true, count };
+}
+
+async function reorderQueue(orderedIds) {
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+    return { ok: false, error: "Missing order list" };
+  }
+  const items = await listItems();
+  const itemMap = new Map(items.map((item) => [item.id, item]));
+  const ordered = [];
+
+  orderedIds.forEach((id) => {
+    const item = itemMap.get(id);
+    if (item) {
+      ordered.push(item);
+      itemMap.delete(id);
+    }
+  });
+
+  itemMap.forEach((item) => ordered.push(item));
+
+  await Promise.all(
+    ordered.map((item, index) =>
+      addItem({
+        ...item,
+        order: index + 1
+      })
+    )
+  );
+
+  return { ok: true };
 }
 
 async function exportQueue({ ids = [], title = "Tsundoku" } = {}) {
