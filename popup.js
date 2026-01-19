@@ -1,14 +1,17 @@
-const { getBrowser } = Tsundoku;
+const { formatDate, getBrowser } = Tsundoku;
 const api = getBrowser();
 const statusEl = document.getElementById("status");
 const countEl = document.getElementById("queue-count");
+const listEl = document.getElementById("queue-list");
 const saveButton = document.getElementById("save-page");
 const exportAllButton = document.getElementById("export-all");
-const openButton = document.getElementById("open-library");
+const deleteAllButton = document.getElementById("delete-all");
+
+let items = [];
 
 saveButton.addEventListener("click", async () => {
   setStatus("Saving...");
-  saveButton.disabled = true;
+  setBusy(true);
 
   try {
     const response = await api.runtime.sendMessage({
@@ -19,28 +22,23 @@ saveButton.addEventListener("click", async () => {
       throw new Error(response?.error || "Save failed");
     }
 
+    await loadItems({ quiet: true });
     setStatus("Saved to queue");
-    updateCount(response.count);
   } catch (error) {
     setStatus(error.message || "Unable to save");
   } finally {
-    saveButton.disabled = false;
+    setBusy(false);
   }
-});
-
-openButton.addEventListener("click", () => {
-  api.tabs.create({ url: api.runtime.getURL("pages/library.html") });
 });
 
 exportAllButton.addEventListener("click", async () => {
   setStatus("Building EPUB...");
-  exportAllButton.disabled = true;
-  saveButton.disabled = true;
+  setBusy(true);
 
   try {
     const response = await api.runtime.sendMessage({
       type: "queue/export",
-      title: "Tsundoku Queue"
+      title: "Tsundoku"
     });
     if (!response?.ok) {
       throw new Error(response?.error || "Export failed");
@@ -49,30 +47,171 @@ exportAllButton.addEventListener("click", async () => {
   } catch (error) {
     setStatus(error.message || "Export failed");
   } finally {
-    exportAllButton.disabled = false;
-    saveButton.disabled = false;
+    setBusy(false);
   }
 });
 
-async function loadCount() {
+deleteAllButton.addEventListener("click", async () => {
+  if (!items.length) {
+    return;
+  }
+  if (!window.confirm("Delete all saved items? This cannot be undone.")) {
+    return;
+  }
+
+  setStatus("Clearing queue...");
+  setBusy(true);
+
   try {
-    const response = await api.runtime.sendMessage({ type: "queue/count" });
-    if (response?.ok) {
-      updateCount(response.count);
+    const response = await api.runtime.sendMessage({ type: "queue/clear" });
+    if (!response?.ok) {
+      throw new Error(response?.error || "Unable to clear queue");
+    }
+    await loadItems({ quiet: true });
+    setStatus("Queue cleared");
+  } catch (error) {
+    setStatus(error.message || "Unable to clear queue");
+  } finally {
+    setBusy(false);
+  }
+});
+
+async function loadItems({ quiet = false } = {}) {
+  if (!quiet) {
+    setStatus("Loading...");
+  }
+  try {
+    const response = await api.runtime.sendMessage({ type: "queue/list" });
+    if (!response?.ok) {
+      throw new Error(response?.error || "Unable to load queue");
+    }
+    items = response.items || [];
+    renderList();
+    updateCount();
+    if (!quiet) {
+      setStatus("Ready");
     }
   } catch (error) {
-    setStatus("Ready");
+    setStatus(error.message || "Unable to load queue");
   }
 }
 
-function updateCount(count = 0) {
-  const label = count === 1 ? "1 item" : `${count} items`;
+function renderList() {
+  listEl.innerHTML = "";
+
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "Your queue is empty. Save a page to get started.";
+    listEl.appendChild(empty);
+    return;
+  }
+
+  items.forEach((item) => {
+    listEl.appendChild(buildItemRow(item));
+  });
+}
+
+function buildItemRow(item) {
+  const row = document.createElement("div");
+  row.className = "item compact";
+
+  const content = document.createElement("div");
+
+  const title = document.createElement("div");
+  title.className = "item-title";
+  title.textContent = item.title || "Untitled";
+
+  const meta = document.createElement("div");
+  meta.className = "item-meta";
+  meta.textContent = buildMeta(item);
+
+  const excerpt = document.createElement("div");
+  excerpt.className = "small";
+  excerpt.textContent = item.excerpt || "";
+
+  content.appendChild(title);
+  content.appendChild(meta);
+  content.appendChild(excerpt);
+
+  const actions = document.createElement("div");
+  actions.className = "item-actions";
+
+  const openButton = document.createElement("button");
+  openButton.className = "secondary";
+  openButton.textContent = "Open";
+  openButton.addEventListener("click", () => {
+    api.tabs.create({ url: item.url });
+  });
+
+  const deleteButton = document.createElement("button");
+  deleteButton.className = "ghost";
+  deleteButton.textContent = "Delete";
+  deleteButton.addEventListener("click", () => deleteItem(item.id));
+
+  actions.appendChild(openButton);
+  actions.appendChild(deleteButton);
+
+  row.appendChild(content);
+  row.appendChild(actions);
+
+  return row;
+}
+
+function buildMeta(item) {
+  const parts = [];
+  if (item.site) {
+    parts.push(item.site);
+  }
+  if (item.byline) {
+    parts.push(item.byline);
+  }
+  const published = formatDate(item.published_at);
+  if (published) {
+    parts.push(published);
+  }
+  if (item.word_count) {
+    parts.push(`${item.word_count} words`);
+  }
+  return parts.join(" | ");
+}
+
+async function deleteItem(id) {
+  setStatus("Removing...");
+  setBusy(true);
+  try {
+    const response = await api.runtime.sendMessage({
+      type: "queue/delete",
+      id
+    });
+    if (!response?.ok) {
+      throw new Error(response?.error || "Unable to delete item");
+    }
+    await loadItems({ quiet: true });
+    setStatus("Removed");
+  } catch (error) {
+    setStatus(error.message || "Unable to delete item");
+  } finally {
+    setBusy(false);
+  }
+}
+
+function updateCount() {
+  const label = items.length === 1 ? "1 item" : `${items.length} items`;
   countEl.textContent = label;
-  exportAllButton.disabled = count === 0;
+  const hasItems = items.length > 0;
+  exportAllButton.disabled = !hasItems;
+  deleteAllButton.disabled = !hasItems;
 }
 
 function setStatus(text) {
   statusEl.textContent = text;
 }
 
-loadCount();
+function setBusy(isBusy) {
+  saveButton.disabled = isBusy;
+  exportAllButton.disabled = isBusy || items.length === 0;
+  deleteAllButton.disabled = isBusy || items.length === 0;
+}
+
+loadItems();

@@ -3,24 +3,25 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Tsundoku Queue</title>
+    <title>Tsundoku</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main>
       <div class="panel">
         <div class="row space-between">
-          <h1>Tsundoku Queue</h1>
+          <h1>Tsundoku</h1>
           <span class="badge" id="queue-count">0 items</span>
         </div>
-        <p>Capture the current page into your local reading queue.</p>
+        <p>Save the current page and export your reading queue.</p>
         <div class="toolbar">
           <button class="primary" id="save-page">Save page</button>
           <button class="secondary" id="export-all">Export all</button>
-          <button class="secondary" id="open-library">Open library</button>
+          <button class="ghost" id="delete-all">Delete all</button>
         </div>
         <div class="status" id="status">Idle</div>
       </div>
+      <div class="list compact" id="queue-list"></div>
     </main>
     <script src="utils/utils.js"></script>
     <script src="popup.js"></script>

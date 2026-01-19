@@ -1,6 +1,7 @@
 const {
   addItem,
   countItems,
+  clearItems,
   deleteItem,
   listItems,
   makeExcerpt,
@@ -48,6 +49,8 @@ async function handleMessage(message) {
       return getCount();
     case "queue/delete":
       return removeItem(message.id);
+    case "queue/clear":
+      return clearQueue();
     case "queue/export":
       return exportQueue(message);
     default:
@@ -117,7 +120,13 @@ async function removeItem(id) {
   return { ok: true, count };
 }
 
-async function exportQueue({ ids = [], title = "Tsundoku Queue" } = {}) {
+async function clearQueue() {
+  await clearItems();
+  const count = await countItems();
+  return { ok: true, count };
+}
+
+async function exportQueue({ ids = [], title = "Tsundoku" } = {}) {
   const items = await listItems();
   const selected = ids.length
     ? items.filter((item) => ids.includes(item.id))
@@ -127,8 +136,8 @@ async function exportQueue({ ids = [], title = "Tsundoku Queue" } = {}) {
     return { ok: false, error: "No items to export" };
   }
 
-  const safeTitle = title.trim() || "tsundoku-queue";
-  const fileBase = slugify(safeTitle) || "tsundoku-queue";
+  const safeTitle = title.trim() || "Tsundoku";
+  const fileBase = slugify(safeTitle) || "tsundoku";
   const dateStamp = new Date().toISOString().slice(0, 10);
   const filename = `${fileBase}-${dateStamp}.epub`;
 

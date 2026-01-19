@@ -66,6 +66,10 @@
     return withStore("readwrite", (store) => requestToPromise(store.delete(id)));
   }
 
+  async function clearItems() {
+    return withStore("readwrite", (store) => requestToPromise(store.clear()));
+  }
+
   async function countItems() {
     return withStore("readonly", (store) => requestToPromise(store.count()));
   }
@@ -74,5 +78,6 @@
   Tsundoku.listItems = listItems;
   Tsundoku.getItemsByIds = getItemsByIds;
   Tsundoku.deleteItem = deleteItem;
+  Tsundoku.clearItems = clearItems;
   Tsundoku.countItems = countItems;
 })();

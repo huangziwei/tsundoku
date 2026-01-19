@@ -8,7 +8,7 @@
     return Tsundoku.escapeXml(value);
   }
 
-  async function buildEpub(items, { title = "Tsundoku Queue" } = {}) {
+  async function buildEpub(items, { title = "Tsundoku" } = {}) {
     const bookId = makeBookId();
     const modified = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 

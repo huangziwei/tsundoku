@@ -116,6 +116,12 @@ button:disabled {
   margin-top: 16px;
 }
 
+.list.compact {
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .item {
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -125,6 +131,10 @@ button:disabled {
   grid-template-columns: auto 1fr auto;
   gap: 12px;
   align-items: start;
+}
+
+.item.compact {
+  grid-template-columns: 1fr auto;
 }
 
 .item-title {

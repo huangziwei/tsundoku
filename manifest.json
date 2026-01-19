@@ -1,10 +1,10 @@
 {
   "manifest_version": 2,
-  "name": "Tsundoku Queue",
+  "name": "Tsundoku",
   "version": "0.1.0",
-  "description": "Save articles to a local queue and export as a single EPUB.",
+  "description": "Save articles and export them as a single EPUB.",
   "browser_action": {
-    "default_title": "Tsundoku Queue",
+    "default_title": "Tsundoku",
     "default_popup": "popup.html"
   },
   "background": {
