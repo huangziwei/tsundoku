@@ -180,6 +180,12 @@ button:disabled {
   margin-bottom: 1em;
 }
 
+.preview .meta {
+  font-size: 0.95em;
+  color: #555;
+  margin-bottom: 0.9em;
+}
+
 .preview blockquote {
   margin: 1em 0;
   padding-left: 1em;

@@ -90,6 +90,12 @@ h1 {
   margin-bottom: 1.1em;
 }
 
+.meta {
+  font-size: 0.95em;
+  color: #555;
+  margin-bottom: 0.9em;
+}
+
 .source {
   margin-top: 1.6em;
   font-size: 0.9em;
@@ -203,9 +209,8 @@ pre {
     const tagline = item.tagline
       ? `<p class="tagline">${escapeXml(item.tagline)}</p>`
       : "";
-    const byline = item.byline
-      ? `<p class="byline">${escapeXml(item.byline)}</p>`
-      : "";
+    const metaLines = item.tagline ? [] : buildMetaLines(item);
+    const metaMarkup = metaLines.length ? `${metaLines.join("\n      ")}\n` : "";
     const content = item.content_html
       ? item.content_html
       : `<p>${escapeXml(item.content_text || "")}</p>`;
@@ -220,11 +225,49 @@ pre {
     <article>
       <h1>${titleMarkup}</h1>
       ${tagline}
-      ${byline}
+      ${metaMarkup}
       ${content}
     </article>
   </body>
 </html>`;
+  }
+
+  function buildMetaLines(item) {
+    const lines = [];
+    const bylineText = formatByline(item.byline);
+    if (bylineText) {
+      lines.push(`<p class="byline">${escapeXml(bylineText)}</p>`);
+    }
+    const published = formatDateTime(item.published_at);
+    if (published) {
+      lines.push(`<p class="meta">Published at ${escapeXml(published)}</p>`);
+    }
+    const edited = formatDateTime(item.modified_at);
+    if (edited && edited !== published) {
+      lines.push(`<p class="meta">Edited at ${escapeXml(edited)}</p>`);
+    }
+    return lines;
+  }
+
+  function formatByline(value) {
+    if (!value) {
+      return "";
+    }
+    const cleaned = String(value).trim().replace(/^by\s+/i, "");
+    return cleaned ? `By ${cleaned}` : "";
+  }
+
+  function formatDateTime(value) {
+    if (!value) {
+      return "";
+    }
+    if (typeof Tsundoku.formatDateTime === "function") {
+      const formatted = Tsundoku.formatDateTime(value);
+      if (formatted) {
+        return formatted;
+      }
+    }
+    return String(value).trim();
   }
 
   function makeBookId() {

@@ -91,6 +91,7 @@ async function saveActiveTab() {
     content_html: payload.content_html,
     content_text: payload.content_text,
     tagline: payload.tagline || "",
+    modified_at: payload.modified_at || "",
     excerpt: payload.excerpt || makeExcerpt(payload.content_text),
     word_count: payload.word_count || wordCount(payload.content_text)
   };

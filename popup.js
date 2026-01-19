@@ -1,4 +1,4 @@
-const { formatDate, getBrowser } = Tsundoku;
+const { formatDate, formatDateTime, getBrowser } = Tsundoku;
 const api = getBrowser();
 const statusEl = document.getElementById("status");
 const countEl = document.getElementById("queue-count");
@@ -200,11 +200,30 @@ function buildPreviewContent(item) {
     article.appendChild(tagline);
   }
 
-  if (item.byline) {
-    const byline = document.createElement("p");
-    byline.className = "byline";
-    byline.textContent = item.byline;
-    article.appendChild(byline);
+  if (!item.tagline) {
+    const bylineText = formatByline(item.byline);
+    if (bylineText) {
+      const byline = document.createElement("p");
+      byline.className = "byline";
+      byline.textContent = bylineText;
+      article.appendChild(byline);
+    }
+
+    const published = formatDateTimeSafe(item.published_at);
+    if (published) {
+      const publishedEl = document.createElement("p");
+      publishedEl.className = "meta";
+      publishedEl.textContent = `Published at ${published}`;
+      article.appendChild(publishedEl);
+    }
+
+    const edited = formatDateTimeSafe(item.modified_at);
+    if (edited && edited !== published) {
+      const editedEl = document.createElement("p");
+      editedEl.className = "meta";
+      editedEl.textContent = `Edited at ${edited}`;
+      article.appendChild(editedEl);
+    }
   }
 
   const content = document.createElement("div");
@@ -223,6 +242,26 @@ function buildPreviewContent(item) {
   article.appendChild(content);
 
   return article;
+}
+
+function formatByline(value) {
+  if (!value) {
+    return "";
+  }
+  const cleaned = String(value).trim().replace(/^by\s+/i, "");
+  return cleaned ? `By ${cleaned}` : "";
+}
+
+function formatDateTimeSafe(value) {
+  if (!value) {
+    return "";
+  }
+  const formatted =
+    typeof formatDateTime === "function" ? formatDateTime(value) : "";
+  if (formatted) {
+    return formatted;
+  }
+  return String(value).trim();
 }
 
 function buildMeta(item) {

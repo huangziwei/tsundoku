@@ -15,7 +15,13 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": [
+        "parsers/utils.js",
+        "parsers/registry.js",
+        "parsers/wikipedia.js",
+        "parsers/guardian.js",
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ]
