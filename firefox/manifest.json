@@ -1,52 +1,52 @@
 {
-  "manifest_version": 2,
-  "name": "Tsundoku",
-  "version": "0.1.0",
-  "description": "Save articles and export them as a single EPUB.",
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "tsundoku@local",
-      "data_collection_permissions": {
-        "required": ["none"],
-        "optional": []
-      }
-    }
-  },
-  "icons": {
-    "16": "icons/icon-16.png",
-    "32": "icons/icon-32.png",
-    "48": "icons/icon-48.png",
-    "96": "icons/icon-96.png",
-    "128": "icons/icon-128.png"
-  },
-  "browser_action": {
-    "default_title": "Tsundoku",
-    "default_icon": {
-      "16": "icons/icon-16.png",
-      "32": "icons/icon-32.png",
-      "48": "icons/icon-48.png",
-      "96": "icons/icon-96.png"
+    "manifest_version": 2,
+    "name": "Tsundoku",
+    "version": "0.1.1",
+    "description": "Save articles and export them as a single EPUB.",
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "tsundoku@local",
+            "data_collection_permissions": {
+                "required": ["none"],
+                "optional": []
+            }
+        }
     },
-    "default_popup": "popup.html"
-  },
-  "background": {
-    "scripts": ["utils/utils.js", "utils/db.js", "utils/epub.js", "background.js"],
-    "persistent": true
-  },
-  "permissions": ["activeTab", "storage", "downloads", "tabs", "<all_urls>"],
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": [
-        "parsers/utils.js",
-        "parsers/registry.js",
-        "parsers/wikipedia.js",
-        "parsers/guardian.js",
-        "parsers/psyche.js",
-        "parsers/nature.js",
-        "content.js"
-      ],
-      "run_at": "document_idle"
-    }
-  ]
+    "icons": {
+        "16": "icons/icon-16.png",
+        "32": "icons/icon-32.png",
+        "48": "icons/icon-48.png",
+        "96": "icons/icon-96.png",
+        "128": "icons/icon-128.png"
+    },
+    "browser_action": {
+        "default_title": "Tsundoku",
+        "default_icon": {
+            "16": "icons/icon-16.png",
+            "32": "icons/icon-32.png",
+            "48": "icons/icon-48.png",
+            "96": "icons/icon-96.png"
+        },
+        "default_popup": "popup.html"
+    },
+    "background": {
+        "scripts": ["utils/utils.js", "utils/db.js", "utils/epub.js", "background.js"],
+        "persistent": true
+    },
+    "permissions": ["activeTab", "storage", "downloads", "tabs", "<all_urls>"],
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": [
+                "parsers/utils.js",
+                "parsers/registry.js",
+                "parsers/wikipedia.js",
+                "parsers/guardian.js",
+                "parsers/psyche.js",
+                "parsers/nature.js",
+                "content.js"
+            ],
+            "run_at": "document_idle"
+        }
+    ]
 }
