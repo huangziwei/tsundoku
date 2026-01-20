@@ -175,6 +175,32 @@ button:disabled {
   overflow-y: auto;
 }
 
+.preview-controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.preview-controls button {
+  padding: 4px 10px;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+}
+
+.preview-body.is-editing {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  background: #fff8ef;
+  min-height: 120px;
+}
+
+.preview-body.is-editing:focus {
+  outline: 2px solid rgba(214, 90, 49, 0.35);
+  outline-offset: 2px;
+}
+
 .preview h1 {
   font-size: 1.1em;
   margin: 0 0 0.4em;

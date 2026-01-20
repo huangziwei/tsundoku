@@ -3,6 +3,7 @@ const {
   countItems,
   deleteItemsByQueue,
   deleteItem,
+  getItemsByIds,
   listItems,
   listQueues,
   addQueue,
@@ -59,6 +60,8 @@ async function handleMessage(message) {
       return clearQueue(message.queueId);
     case "queue/reorder":
       return reorderQueue(message.orderedIds, message.queueId);
+    case "queue/update-item":
+      return updateQueueItem(message);
     case "queue/export":
       return exportQueue(message);
     case "queues/list":
@@ -175,6 +178,27 @@ async function reorderQueue(orderedIds, queueId) {
   );
 
   return { ok: true };
+}
+
+async function updateQueueItem({ id, content_html, content_text } = {}) {
+  if (!id) {
+    return { ok: false, error: "Missing item id" };
+  }
+  const [item] = await getItemsByIds([id]);
+  if (!item) {
+    return { ok: false, error: "Item not found" };
+  }
+  const nextHtml = typeof content_html === "string" ? content_html : item.content_html || "";
+  const nextText = typeof content_text === "string" ? content_text : item.content_text || "";
+  const updated = {
+    ...item,
+    content_html: nextHtml,
+    content_text: nextText,
+    excerpt: makeExcerpt(nextText),
+    word_count: wordCount(nextText)
+  };
+  await addItem(updated);
+  return { ok: true, item: updated };
 }
 
 async function exportQueue({ queueId, title = "To Be Read" } = {}) {
