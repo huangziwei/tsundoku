@@ -10,6 +10,7 @@ const queueSelect = document.getElementById("queue-select");
 const renameQueueButton = document.getElementById("rename-queue");
 const newQueueButton = document.getElementById("new-queue");
 const openRssButton = document.getElementById("open-rss");
+const syncRssButton = document.getElementById("sync-rss");
 
 let items = [];
 let queues = [];
@@ -176,6 +177,26 @@ newQueueButton.addEventListener("click", async () => {
 openRssButton.addEventListener("click", () => {
   const url = api.runtime.getURL("rss.html");
   api.tabs.create({ url });
+});
+
+syncRssButton.addEventListener("click", async () => {
+  setStatus("Syncing RSS...");
+  setBusy(true);
+
+  try {
+    const response = await api.runtime.sendMessage({ type: "rss/sync" });
+    if (!response?.ok) {
+      throw new Error(response?.error || "Unable to sync RSS");
+    }
+    await loadItems({ quiet: true });
+    const added = response.added || 0;
+    const label = added === 1 ? "1 new item" : `${added} new items`;
+    setStatus(`RSS sync complete: ${label}`);
+  } catch (error) {
+    setStatus(error.message || "Unable to sync RSS");
+  } finally {
+    setBusy(false);
+  }
 });
 
 async function loadItems({ quiet = false } = {}) {
@@ -673,6 +694,7 @@ function syncControls() {
   renameQueueButton.disabled = isBusy || queues.length === 0;
   newQueueButton.disabled = isBusy;
   openRssButton.disabled = isBusy;
+  syncRssButton.disabled = isBusy;
 }
 
 async function moveItem(fromIndex, delta) {

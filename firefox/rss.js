@@ -76,7 +76,7 @@ async function addFeed() {
     }
     feedUrlInput.value = "";
     await loadFeeds({ quiet: true });
-    setStatus(response.created ? "Feed added" : "Feed already exists");
+    setStatus(buildAddStatus(response));
   } catch (error) {
     setStatus(error.message || "Unable to add feed");
   } finally {
@@ -262,6 +262,32 @@ function formatDateTimeSafe(value) {
     return formatted;
   }
   return String(value).trim();
+}
+
+function buildAddStatus(response) {
+  const added = response?.added ?? 0;
+  const skipped = response?.skipped ?? 0;
+  const discovered = response?.discovered ?? added + skipped;
+  if (added === 0 && skipped > 0 && discovered <= 1) {
+    return "Feed already exists";
+  }
+  if (added === 0 && discovered > 0) {
+    return `No new feeds added (${discovered} found)`;
+  }
+  if (added > 0 && discovered > 1) {
+    const parts = [`Added ${added}`, `found ${discovered}`];
+    if (skipped) {
+      parts.push(`skipped ${skipped}`);
+    }
+    return parts.join(", ");
+  }
+  if (added > 0 && skipped > 0) {
+    return `Added ${added}, skipped ${skipped}`;
+  }
+  if (added > 0) {
+    return added === 1 ? "Feed added" : `Added ${added} feeds`;
+  }
+  return "No feeds added";
 }
 
 function setStatus(text) {

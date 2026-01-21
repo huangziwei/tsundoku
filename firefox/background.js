@@ -21,6 +21,7 @@ const {
   buildEpub,
   inlineImagesInHtml,
   normalizeFeedUrl,
+  discoverFeeds,
   syncFeeds,
   getBrowser,
   DEFAULT_QUEUE_ID,
@@ -283,12 +284,40 @@ async function addFeedMessage(url) {
   if (!normalized) {
     return { ok: false, error: "Feed URL is invalid" };
   }
+
   const existing = await getFeed(normalized);
   if (existing) {
-    return { ok: true, feed: existing, created: false };
+    return { ok: true, added: 0, skipped: 1, feeds: [existing] };
   }
-  const created = await addFeed(normalized);
-  return { ok: true, feed: created.feed, created: created.created };
+
+  const discovery = await discoverFeeds(normalized);
+  if (!discovery.ok || !discovery.feeds.length) {
+    return { ok: false, error: discovery.error || "No feeds discovered" };
+  }
+
+  let added = 0;
+  let skipped = 0;
+  const feeds = [];
+
+  for (const feed of discovery.feeds) {
+    const result = await addFeed(feed.url, {
+      title: feed.title,
+      site_url: feed.site_url
+    });
+    if (result.created) {
+      added += 1;
+      feeds.push(result.feed);
+    } else {
+      skipped += 1;
+    }
+  }
+
+  return {
+    ok: true,
+    added,
+    skipped,
+    discovered: discovery.feeds.length
+  };
 }
 
 async function removeFeedMessage(url) {

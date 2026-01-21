@@ -5,7 +5,43 @@
   const DEFAULT_INITIAL_LIMIT = 3;
 
   Tsundoku.normalizeFeedUrl = normalizeFeedUrl;
+  Tsundoku.discoverFeeds = discoverFeeds;
   Tsundoku.syncFeeds = syncFeeds;
+
+  async function discoverFeeds(inputUrl) {
+    const normalized = normalizeFeedUrl(inputUrl);
+    if (!normalized) {
+      return { ok: false, error: "Feed URL is invalid", feeds: [] };
+    }
+
+    const direct = await tryParseFeed(normalized);
+    if (direct.ok) {
+      return { ok: true, feeds: [direct.feed], source: "direct" };
+    }
+
+    const htmlCandidates = await discoverFromHtml(normalized);
+    const commonCandidates = buildCommonCandidates(normalized);
+    const candidates = uniqueCandidates([...htmlCandidates, ...commonCandidates]);
+
+    const feeds = [];
+    for (const candidate of candidates) {
+      const result = await tryParseFeed(candidate.url);
+      if (result.ok) {
+        feeds.push(result.feed);
+      }
+    }
+
+    if (!feeds.length) {
+      return { ok: false, error: "No feeds discovered", feeds: [] };
+    }
+
+    return {
+      ok: true,
+      feeds,
+      source: "discovered",
+      candidates: candidates.length
+    };
+  }
 
   async function syncFeeds({ initialLimit = DEFAULT_INITIAL_LIMIT } = {}) {
     const feeds = await Tsundoku.listFeeds();
@@ -148,6 +184,154 @@
     };
   }
 
+  async function tryParseFeed(url) {
+    let response;
+    try {
+      response = await fetch(url, { cache: "no-store" });
+    } catch (error) {
+      return { ok: false, error: error ? String(error) : "Fetch failed" };
+    }
+    if (!response.ok) {
+      return { ok: false, error: `HTTP ${response.status}` };
+    }
+    let text = "";
+    try {
+      text = await response.text();
+    } catch (error) {
+      return { ok: false, error: "Unable to read response" };
+    }
+    let parsed;
+    try {
+      parsed = parseFeed(text, response.url || url);
+    } catch (error) {
+      return { ok: false, error: error ? String(error) : "Not a feed" };
+    }
+    const resolved = normalizeFeedUrl(response.url || url) || url;
+    return {
+      ok: true,
+      feed: {
+        url: resolved,
+        title: parsed.title || "",
+        site_url: parsed.siteUrl || ""
+      }
+    };
+  }
+
+  async function discoverFromHtml(url) {
+    let response;
+    try {
+      response = await fetch(url, { cache: "no-store" });
+    } catch (error) {
+      return [];
+    }
+    if (!response.ok) {
+      return [];
+    }
+    let text = "";
+    try {
+      text = await response.text();
+    } catch (error) {
+      return [];
+    }
+    const doc = new DOMParser().parseFromString(text, "text/html");
+    const links = Array.from(doc.querySelectorAll("link"));
+    const candidates = [];
+    links.forEach((link) => {
+      const rel = String(link.getAttribute("rel") || "").toLowerCase();
+      if (!rel.includes("alternate") && !rel.includes("feed")) {
+        return;
+      }
+      const href = link.getAttribute("href");
+      if (!href) {
+        return;
+      }
+      const type = String(link.getAttribute("type") || "").toLowerCase();
+      const isFeedType = type.includes("rss") || type.includes("atom");
+      const isXmlType = type.includes("xml");
+      if (!isFeedType && !isXmlType && !looksLikeFeedHref(href)) {
+        return;
+      }
+      const resolved = resolveUrl(url, href);
+      if (resolved) {
+        candidates.push({ url: resolved, title: link.getAttribute("title") || "" });
+      }
+    });
+    return candidates;
+  }
+
+  function buildCommonCandidates(inputUrl) {
+    let parsed;
+    try {
+      parsed = new URL(inputUrl);
+    } catch (error) {
+      return [];
+    }
+    const suffixes = [
+      "feed",
+      "feed/",
+      "rss",
+      "rss.xml",
+      "rss/index.xml",
+      "atom.xml",
+      "feed.xml",
+      "index.xml"
+    ];
+    const bases = new Set();
+    bases.add(`${parsed.origin}/`);
+    const pathBase = buildPathBase(parsed.pathname || "/");
+    bases.add(new URL(pathBase, parsed.origin).toString());
+
+    const candidates = [];
+    bases.forEach((base) => {
+      suffixes.forEach((suffix) => {
+        const candidate = new URL(suffix, base).toString();
+        if (candidate !== inputUrl) {
+          candidates.push({ url: candidate });
+        }
+      });
+    });
+    return candidates;
+  }
+
+  function buildPathBase(pathname) {
+    if (!pathname || pathname === "/") {
+      return "/";
+    }
+    if (pathname.endsWith("/")) {
+      return pathname;
+    }
+    const lastSegment = pathname.split("/").pop() || "";
+    if (lastSegment.includes(".")) {
+      const idx = pathname.lastIndexOf("/");
+      return idx >= 0 ? pathname.slice(0, idx + 1) : "/";
+    }
+    return `${pathname}/`;
+  }
+
+  function uniqueCandidates(candidates) {
+    const seen = new Set();
+    const unique = [];
+    candidates.forEach((candidate) => {
+      const normalized = normalizeFeedUrl(candidate.url) || candidate.url;
+      if (!normalized || seen.has(normalized)) {
+        return;
+      }
+      seen.add(normalized);
+      unique.push({ ...candidate, url: normalized });
+    });
+    return unique;
+  }
+
+  function looksLikeFeedHref(href) {
+    const lower = String(href || "").toLowerCase();
+    return (
+      lower.endsWith(".xml") ||
+      lower.endsWith(".rss") ||
+      lower.endsWith(".atom") ||
+      lower.includes("feed")
+    );
+  }
+
   function parseFeed(xmlText, feedUrl) {
     const doc = parseXml(xmlText);
     const root = doc.documentElement;
@@ -158,7 +342,18 @@
     if (rootName === "feed") {
       return parseAtomFeed(root, feedUrl);
     }
-    return parseRssFeed(doc, feedUrl);
+    if (rootName === "rss" || rootName === "rdf" || rootName === "rdf:rdf") {
+      return parseRssFeed(doc, feedUrl);
+    }
+    const atomRoot = doc.querySelector("feed");
+    if (atomRoot) {
+      return parseAtomFeed(atomRoot, feedUrl);
+    }
+    const rssRoot = doc.querySelector("rss, rdf\\:RDF, rdf\\:rdf");
+    if (rssRoot) {
+      return parseRssFeed(doc, feedUrl);
+    }
+    throw new Error("Not a feed");
   }
 
   function parseRssFeed(doc, feedUrl) {
