@@ -118,7 +118,7 @@ button:disabled {
 }
 
 .list.compact {
-  max-height: 360px;
+  max-height: 520px;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -171,7 +171,7 @@ button:disabled {
   line-height: 1.6;
   font-family: "Georgia", "Times New Roman", serif;
   color: #1b1b1b;
-  max-height: 220px;
+  max-height: 480px;
   overflow-y: auto;
 }
 
@@ -179,7 +179,15 @@ button:disabled {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-bottom: 8px;
+  margin: 8px 0;
+}
+
+.preview-controls.top {
+  margin-top: 0;
+}
+
+.preview-controls.bottom {
+  margin-bottom: 0;
 }
 
 .preview-controls button {
@@ -193,7 +201,7 @@ button:disabled {
   border-radius: 10px;
   padding: 8px;
   background: #fff8ef;
-  min-height: 120px;
+  min-height: 240px;
 }
 
 .preview-body.is-editing:focus {

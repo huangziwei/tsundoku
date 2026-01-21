@@ -446,26 +446,8 @@ function buildPreviewContent(item, { onUpdated } = {}) {
   const wrapper = document.createElement("div");
   wrapper.className = "preview-wrapper";
 
-  const controls = document.createElement("div");
-  controls.className = "preview-controls";
-
-  const editButton = document.createElement("button");
-  editButton.className = "secondary";
-  editButton.textContent = "Edit";
-
-  const saveButton = document.createElement("button");
-  saveButton.className = "primary";
-  saveButton.textContent = "Save";
-  saveButton.hidden = true;
-
-  const cancelButton = document.createElement("button");
-  cancelButton.className = "ghost";
-  cancelButton.textContent = "Cancel";
-  cancelButton.hidden = true;
-
-  controls.appendChild(editButton);
-  controls.appendChild(saveButton);
-  controls.appendChild(cancelButton);
+  const topControls = createPreviewControls("top");
+  const bottomControls = createPreviewControls("bottom");
 
   const article = document.createElement("article");
 
@@ -530,13 +512,35 @@ function buildPreviewContent(item, { onUpdated } = {}) {
   }
   article.appendChild(content);
 
-  wrapper.appendChild(controls);
+  wrapper.appendChild(topControls.controls);
   wrapper.appendChild(article);
+  wrapper.appendChild(bottomControls.controls);
+
+  const editButtons = [topControls.editButton, bottomControls.editButton];
+  const saveButtons = [topControls.saveButton, bottomControls.saveButton];
+  const cancelButtons = [topControls.cancelButton, bottomControls.cancelButton];
 
   let originalHtml = "";
-  let isEditing = false;
 
-  editButton.addEventListener("click", () => {
+  editButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      handleEdit();
+    });
+  });
+
+  cancelButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      handleCancel();
+    });
+  });
+
+  saveButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      handleSave();
+    });
+  });
+
+  function handleEdit() {
     if (!item.id) {
       setStatus("Missing item id");
       return;
@@ -544,14 +548,14 @@ function buildPreviewContent(item, { onUpdated } = {}) {
     originalHtml = content.innerHTML;
     setEditing(true);
     content.focus();
-  });
+  }
 
-  cancelButton.addEventListener("click", () => {
+  function handleCancel() {
     content.innerHTML = originalHtml;
     setEditing(false);
-  });
+  }
 
-  saveButton.addEventListener("click", async () => {
+  async function handleSave() {
     if (!item.id) {
       setStatus("Missing item id");
       return;
@@ -581,13 +585,18 @@ function buildPreviewContent(item, { onUpdated } = {}) {
     } finally {
       setEditButtonsDisabled(false);
     }
-  });
+  }
 
   function setEditing(next) {
-    isEditing = next;
-    editButton.hidden = next;
-    saveButton.hidden = !next;
-    cancelButton.hidden = !next;
+    editButtons.forEach((button) => {
+      button.hidden = next;
+    });
+    saveButtons.forEach((button) => {
+      button.hidden = !next;
+    });
+    cancelButtons.forEach((button) => {
+      button.hidden = !next;
+    });
     if (next) {
       content.setAttribute("contenteditable", "true");
       content.setAttribute("role", "textbox");
@@ -604,9 +613,43 @@ function buildPreviewContent(item, { onUpdated } = {}) {
   }
 
   function setEditButtonsDisabled(value) {
-    editButton.disabled = value && !isEditing;
-    saveButton.disabled = value;
-    cancelButton.disabled = value;
+    editButtons.forEach((button) => {
+      button.disabled = value;
+    });
+    saveButtons.forEach((button) => {
+      button.disabled = value;
+    });
+    cancelButtons.forEach((button) => {
+      button.disabled = value;
+    });
+  }
+
+  function createPreviewControls(position) {
+    const controls = document.createElement("div");
+    controls.className = "preview-controls";
+    if (position) {
+      controls.classList.add(position);
+    }
+
+    const editButton = document.createElement("button");
+    editButton.className = "secondary";
+    editButton.textContent = "Edit";
+
+    const saveButton = document.createElement("button");
+    saveButton.className = "primary";
+    saveButton.textContent = "Save";
+    saveButton.hidden = true;
+
+    const cancelButton = document.createElement("button");
+    cancelButton.className = "ghost";
+    cancelButton.textContent = "Cancel";
+    cancelButton.hidden = true;
+
+    controls.appendChild(editButton);
+    controls.appendChild(saveButton);
+    controls.appendChild(cancelButton);
+
+    return { controls, editButton, saveButton, cancelButton };
   }
 
   return wrapper;
