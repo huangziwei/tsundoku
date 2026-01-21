@@ -1,6 +1,6 @@
 # Tsundoku 積読
 
-Save articles from your browser and export them as a single EPUB.
+Save articles from your browser and export them as a single EPUB (for offline reading or [listening](https://github.com/huangziwei/ptts)).
 
 > 積読、積ん読（つんどく）は、入手した書籍を読むことなく自宅で積んだままにしている状態を意味する言葉である [^1]
 >

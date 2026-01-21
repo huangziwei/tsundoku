@@ -82,7 +82,7 @@ function renderItem(data) {
   titleEl.textContent = titleText;
   document.title = `Edit - ${titleText}`;
   metaEl.textContent = buildMeta(data);
-  contentEl.innerHTML = "";
+  clearContainer(contentEl);
 
   const html = data.content_html || "";
   if (html.trim()) {
@@ -127,7 +127,7 @@ async function saveEdits() {
     }
     item = response.item;
     originalHtml = html;
-    contentEl.innerHTML = html;
+    setEditorContentHtml(html);
     metaEl.textContent = buildMeta(item);
     setStatus("Saved");
   } catch (error) {
@@ -141,8 +141,22 @@ function cancelEdits() {
   if (isBusy) {
     return;
   }
-  contentEl.innerHTML = originalHtml;
+  setEditorContentHtml(originalHtml);
   setStatus("Changes discarded");
+}
+
+function setEditorContentHtml(html) {
+  clearContainer(contentEl);
+  if (!html || !html.trim()) {
+    return;
+  }
+  appendHtmlSafely(contentEl, html);
+}
+
+function clearContainer(container) {
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
 }
 
 function appendHtmlSafely(container, html) {
