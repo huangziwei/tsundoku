@@ -30,7 +30,13 @@
         "default_popup": "popup.html"
     },
     "background": {
-        "scripts": ["utils/utils.js", "utils/db.js", "utils/epub.js", "background.js"],
+        "scripts": [
+            "utils/utils.js",
+            "utils/db.js",
+            "utils/rss.js",
+            "utils/epub.js",
+            "background.js"
+        ],
         "persistent": true
     },
     "permissions": ["activeTab", "storage", "downloads", "tabs", "<all_urls>"],

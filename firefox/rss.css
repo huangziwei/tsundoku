@@ -1,0 +1,63 @@
+:root {
+  color-scheme: light;
+}
+
+main.rss {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.rss-header {
+  margin-bottom: 16px;
+}
+
+.rss-heading {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.rss-toolbar {
+  margin-top: 8px;
+}
+
+.rss-panel {
+  margin-top: 16px;
+}
+
+.rss-add {
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.rss-add .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.rss-import {
+  margin-top: 10px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rss-feed-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.rss-error {
+  color: #b03a2e;
+}
+
+@media (max-width: 640px) {
+  main.rss {
+    padding: 14px;
+  }
+
+  .rss-add {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

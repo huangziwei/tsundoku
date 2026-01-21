@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RSS Inbox - Tsundoku</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="rss.css" />
+  </head>
+  <body>
+    <main class="rss">
+      <header class="panel rss-header">
+        <div class="row space-between rss-heading">
+          <div>
+            <h1>RSS Inbox</h1>
+            <p>Sync feeds and export unread items from the RSS queue.</p>
+          </div>
+          <span class="badge" id="rss-count">0 items</span>
+        </div>
+        <div class="toolbar rss-toolbar">
+          <button class="secondary" id="sync-feeds">Sync RSS</button>
+        </div>
+        <div class="status" id="rss-status">Idle</div>
+      </header>
+      <section class="panel rss-panel">
+        <label class="small" for="feed-url">Add feed</label>
+        <div class="row rss-add">
+          <input
+            class="input"
+            id="feed-url"
+            type="url"
+            placeholder="https://example.com/feed.xml"
+            autocomplete="off"
+          />
+          <button class="primary" id="add-feed">Add feed</button>
+        </div>
+        <div class="row rss-import">
+          <input type="file" id="opml-file" accept=".opml,.xml" hidden />
+          <button class="ghost" id="import-opml">Import OPML</button>
+          <span class="small">OPML imports feed URLs only.</span>
+        </div>
+        <div class="list" id="feed-list"></div>
+      </section>
+    </main>
+    <script src="utils/utils.js"></script>
+    <script src="rss.js"></script>
+  </body>
+</html>

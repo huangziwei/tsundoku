@@ -34,6 +34,7 @@ Safari Web Extensions must be bundled inside a macOS wrapper app. For personal u
 - Create or rename queues from the queue selector.
 - Export the active queue to an EPUB.
 - Preview shows the sanitized HTML that will be included in the EPUB.
+- Use "Manage RSS" to add feeds, sync the RSS Inbox, and export unread items.
 
 ## Data
 - All data is stored locally in IndexedDB.

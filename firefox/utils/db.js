@@ -3,11 +3,14 @@
   const Tsundoku = root.Tsundoku || (root.Tsundoku = {});
 
   const DB_NAME = "tsundoku_queue";
-  const DB_VERSION = 2;
+  const DB_VERSION = 3;
   const STORE_ITEMS = "items";
   const STORE_QUEUES = "queues";
+  const STORE_FEEDS = "feeds";
   const DEFAULT_QUEUE_ID = "default";
   const DEFAULT_QUEUE_NAME = "To Be Read";
+  const RSS_QUEUE_ID = "rss-inbox";
+  const RSS_QUEUE_NAME = "RSS Inbox";
 
   function requestToPromise(request) {
     return new Promise((resolve, reject) => {
@@ -45,24 +48,27 @@
           const queueStore = db.createObjectStore(STORE_QUEUES, { keyPath: "id" });
           queueStore.createIndex("created_at", "created_at");
           queueStore.createIndex("name", "name");
+          const now = new Date().toISOString();
           queueStore.put({
             id: DEFAULT_QUEUE_ID,
             name: DEFAULT_QUEUE_NAME,
-            created_at: new Date().toISOString()
+            created_at: now
+          });
+          queueStore.put({
+            id: RSS_QUEUE_ID,
+            name: RSS_QUEUE_NAME,
+            created_at: now
           });
         } else if (tx) {
           const queueStore = tx.objectStore(STORE_QUEUES);
-          const requestDefault = queueStore.get(DEFAULT_QUEUE_ID);
-          requestDefault.onsuccess = () => {
-            if (requestDefault.result) {
-              return;
-            }
-            queueStore.put({
-              id: DEFAULT_QUEUE_ID,
-              name: DEFAULT_QUEUE_NAME,
-              created_at: new Date().toISOString()
-            });
-          };
+          ensureQueueRecord(queueStore, DEFAULT_QUEUE_ID, DEFAULT_QUEUE_NAME);
+          ensureQueueRecord(queueStore, RSS_QUEUE_ID, RSS_QUEUE_NAME);
+        }
+
+        if (!db.objectStoreNames.contains(STORE_FEEDS)) {
+          const feedStore = db.createObjectStore(STORE_FEEDS, { keyPath: "url" });
+          feedStore.createIndex("created_at", "created_at");
+          feedStore.createIndex("title", "title");
         }
 
         if (itemStore) {
@@ -195,6 +201,7 @@
 
   async function listQueues() {
     await ensureDefaultQueue();
+    await ensureRssQueue();
     return withStores(STORE_QUEUES, "readonly", async (store) => {
       const queues = await requestToPromise(store.getAll());
       queues.sort((a, b) => {
@@ -202,6 +209,12 @@
           return -1;
         }
         if (b.id === DEFAULT_QUEUE_ID) {
+          return 1;
+        }
+        if (a.id === RSS_QUEUE_ID) {
+          return -1;
+        }
+        if (b.id === RSS_QUEUE_ID) {
           return 1;
         }
         return new Date(a.created_at) - new Date(b.created_at);
@@ -241,19 +254,97 @@
   }
 
   async function ensureDefaultQueue() {
+    return ensureQueue(DEFAULT_QUEUE_ID, DEFAULT_QUEUE_NAME);
+  }
+
+  async function ensureRssQueue() {
+    return ensureQueue(RSS_QUEUE_ID, RSS_QUEUE_NAME);
+  }
+
+  async function ensureQueue(id, name) {
     return withStores(STORE_QUEUES, "readwrite", async (store) => {
-      const existing = await requestToPromise(store.get(DEFAULT_QUEUE_ID));
+      const existing = await requestToPromise(store.get(id));
       if (existing) {
         return existing;
       }
       const queue = {
-        id: DEFAULT_QUEUE_ID,
-        name: DEFAULT_QUEUE_NAME,
+        id,
+        name,
         created_at: new Date().toISOString()
       };
       await requestToPromise(store.put(queue));
       return queue;
     });
+  }
+
+  async function listFeeds() {
+    return withStores(STORE_FEEDS, "readonly", async (store) => {
+      const feeds = await requestToPromise(store.getAll());
+      feeds.sort((a, b) => {
+        const nameA = String(a.title || a.url || "").toLowerCase();
+        const nameB = String(b.title || b.url || "").toLowerCase();
+        if (nameA < nameB) {
+          return -1;
+        }
+        if (nameA > nameB) {
+          return 1;
+        }
+        return new Date(a.created_at) - new Date(b.created_at);
+      });
+      return feeds;
+    });
+  }
+
+  async function getFeed(url) {
+    return withStores(STORE_FEEDS, "readonly", (store) =>
+      requestToPromise(store.get(url))
+    );
+  }
+
+  async function addFeed(url, { title = "", site_url = "" } = {}) {
+    return withStores(STORE_FEEDS, "readwrite", async (store) => {
+      const existing = await requestToPromise(store.get(url));
+      if (existing) {
+        return { feed: existing, created: false };
+      }
+      const now = new Date().toISOString();
+      const feed = {
+        url,
+        title,
+        site_url,
+        created_at: now,
+        updated_at: now,
+        last_sync_at: "",
+        last_modified: "",
+        etag: "",
+        last_error: ""
+      };
+      await requestToPromise(store.put(feed));
+      return { feed, created: true };
+    });
+  }
+
+  async function updateFeed(url, updates = {}) {
+    return withStores(STORE_FEEDS, "readwrite", async (store) => {
+      const existing = await requestToPromise(store.get(url));
+      if (!existing) {
+        return null;
+      }
+      const updated = {
+        ...existing,
+        ...updates,
+        url,
+        updated_at: new Date().toISOString()
+      };
+      await requestToPromise(store.put(updated));
+      return updated;
+    });
+  }
+
+  async function deleteFeed(url) {
+    return withStores(STORE_FEEDS, "readwrite", (store) =>
+      requestToPromise(store.delete(url))
+    );
   }
 
   Tsundoku.addItem = addItem;
@@ -268,7 +359,14 @@
   Tsundoku.renameQueue = renameQueue;
   Tsundoku.getQueue = getQueue;
   Tsundoku.ensureDefaultQueue = ensureDefaultQueue;
+  Tsundoku.ensureRssQueue = ensureRssQueue;
   Tsundoku.DEFAULT_QUEUE_ID = DEFAULT_QUEUE_ID;
+  Tsundoku.RSS_QUEUE_ID = RSS_QUEUE_ID;
+  Tsundoku.listFeeds = listFeeds;
+  Tsundoku.getFeed = getFeed;
+  Tsundoku.addFeed = addFeed;
+  Tsundoku.updateFeed = updateFeed;
+  Tsundoku.deleteFeed = deleteFeed;
 
   function getOrderValue(item) {
     if (typeof item.order === "number" && Number.isFinite(item.order)) {
@@ -283,5 +381,19 @@
       return `queue-${crypto.randomUUID()}`;
     }
     return `queue-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  function ensureQueueRecord(store, id, name) {
+    const requestRecord = store.get(id);
+    requestRecord.onsuccess = () => {
+      if (requestRecord.result) {
+        return;
+      }
+      store.put({
+        id,
+        name,
+        created_at: new Date().toISOString()
+      });
+    };
   }
 })();

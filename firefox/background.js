@@ -5,18 +5,26 @@ const {
   deleteItem,
   getItemsByIds,
   listItems,
+  listFeeds,
+  getFeed,
+  addFeed,
+  deleteFeed,
   listQueues,
   addQueue,
   renameQueue,
   getQueue,
   ensureDefaultQueue,
+  ensureRssQueue,
   makeExcerpt,
   wordCount,
   slugify,
   buildEpub,
   inlineImagesInHtml,
+  normalizeFeedUrl,
+  syncFeeds,
   getBrowser,
-  DEFAULT_QUEUE_ID
+  DEFAULT_QUEUE_ID,
+  RSS_QUEUE_ID
 } = Tsundoku;
 
 const api = getBrowser();
@@ -73,6 +81,16 @@ async function handleMessage(message) {
       return createQueue(message.name);
     case "queues/rename":
       return renameQueueMessage(message.id, message.name);
+    case "rss/list":
+      return listFeedsMessage();
+    case "rss/add":
+      return addFeedMessage(message.url);
+    case "rss/remove":
+      return removeFeedMessage(message.url);
+    case "rss/import":
+      return importFeedsMessage(message.feeds);
+    case "rss/sync":
+      return syncFeedsMessage();
     default:
       return { ok: false, error: "Unknown request" };
   }
@@ -252,6 +270,66 @@ async function listQueuesMessage() {
   const queues = await listQueues();
   const defaultQueue = await ensureDefaultQueue();
   return { ok: true, queues, defaultQueueId: defaultQueue.id };
+}
+
+async function listFeedsMessage() {
+  const feeds = await listFeeds();
+  const rssQueue = await ensureRssQueue();
+  return { ok: true, feeds, rssQueueId: rssQueue.id || RSS_QUEUE_ID };
+}
+
+async function addFeedMessage(url) {
+  const normalized = normalizeFeedUrl(url);
+  if (!normalized) {
+    return { ok: false, error: "Feed URL is invalid" };
+  }
+  const existing = await getFeed(normalized);
+  if (existing) {
+    return { ok: true, feed: existing, created: false };
+  }
+  const created = await addFeed(normalized);
+  return { ok: true, feed: created.feed, created: created.created };
+}
+
+async function removeFeedMessage(url) {
+  const normalized = normalizeFeedUrl(url);
+  if (!normalized) {
+    return { ok: false, error: "Feed URL is invalid" };
+  }
+  await deleteFeed(normalized);
+  return { ok: true };
+}
+
+async function importFeedsMessage(feeds) {
+  if (!Array.isArray(feeds) || feeds.length === 0) {
+    return { ok: false, error: "No feeds to import" };
+  }
+  let added = 0;
+  let skipped = 0;
+  let invalid = 0;
+  for (const entry of feeds) {
+    const rawUrl = typeof entry === "string" ? entry : entry?.url;
+    const normalized = normalizeFeedUrl(rawUrl);
+    if (!normalized) {
+      invalid += 1;
+      continue;
+    }
+    const result = await addFeed(normalized, {
+      title: entry?.title || "",
+      site_url: entry?.site_url || ""
+    });
+    if (result.created) {
+      added += 1;
+    } else {
+      skipped += 1;
+    }
+  }
+  return { ok: true, added, skipped, invalid };
+}
+
+async function syncFeedsMessage() {
+  const result = await syncFeeds({ initialLimit: 3 });
+  return { ok: true, ...result };
 }
 
 async function createQueue(name) {

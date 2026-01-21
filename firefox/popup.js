@@ -9,6 +9,7 @@ const deleteAllButton = document.getElementById("delete-all");
 const queueSelect = document.getElementById("queue-select");
 const renameQueueButton = document.getElementById("rename-queue");
 const newQueueButton = document.getElementById("new-queue");
+const openRssButton = document.getElementById("open-rss");
 
 let items = [];
 let queues = [];
@@ -170,6 +171,11 @@ newQueueButton.addEventListener("click", async () => {
   } finally {
     setBusy(false);
   }
+});
+
+openRssButton.addEventListener("click", () => {
+  const url = api.runtime.getURL("rss.html");
+  api.tabs.create({ url });
 });
 
 async function loadItems({ quiet = false } = {}) {
@@ -666,6 +672,7 @@ function syncControls() {
   queueSelect.disabled = isBusy || queues.length === 0;
   renameQueueButton.disabled = isBusy || queues.length === 0;
   newQueueButton.disabled = isBusy;
+  openRssButton.disabled = isBusy;
 }
 
 async function moveItem(fromIndex, delta) {
