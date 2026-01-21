@@ -98,11 +98,18 @@ button:disabled {
 }
 
 .status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
   font-size: 12px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.2px;
   color: var(--accent-2);
+  background: rgba(47, 72, 88, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  margin-top: 8px;
 }
 
 .small {
