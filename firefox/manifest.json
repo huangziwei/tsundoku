@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "Tsundoku",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "description": "Save articles and export them as a single EPUB.",
     "browser_specific_settings": {
         "gecko": {
