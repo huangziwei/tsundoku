@@ -1,10 +1,10 @@
 # Tsundoku 積読
 
-Save articles from your browser and export them as a single EPUB (for offline reading or [listening](https://github.com/huangziwei/ptts)).
+Save articles from your browser and export them as a single EPUB (for offline reading or [listening](https://github.com/huangziwei/ptts), or not).
 
-> 積読、積ん読（つんどく）は、入手した書籍を読むことなく自宅で積んだままにしている状態を意味する言葉である [^1]
+> 積読は、入手した書籍を読むことなく自宅で積んだままにしている状態を意味する言葉である [^1]
 >
-> Tsundoku (積ん読) is the phenomenon of acquiring reading materials but letting them pile up in a home without reading them. The term is also used to refer to unread books on a bookshelf meant for reading later. [^2]
+> Tsundoku is the phenomenon of acquiring reading materials but letting them pile up in a home without reading them. The term is also used to refer to unread books on a bookshelf meant for reading later. [^2]
 
 [^1]: https://ja.wikipedia.org/wiki/積読
 [^2]: https://en.wikipedia.org/wiki/Tsundoku
