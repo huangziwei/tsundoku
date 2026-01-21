@@ -14,6 +14,7 @@ const {
   wordCount,
   slugify,
   buildEpub,
+  inlineImagesInHtml,
   getBrowser,
   DEFAULT_QUEUE_ID
 } = Tsundoku;
@@ -99,6 +100,14 @@ async function saveActiveTab(queueId) {
   }
 
   const payload = response.payload;
+  let contentHtml = payload.content_html || "";
+  if (contentHtml) {
+    try {
+      contentHtml = await inlineImagesInHtml(contentHtml, payload.url);
+    } catch (error) {
+      contentHtml = payload.content_html || "";
+    }
+  }
   const now = new Date().toISOString();
   const item = {
     id: makeId(),
@@ -110,7 +119,7 @@ async function saveActiveTab(queueId) {
     order: Date.now(),
     queue_id: resolvedQueueId,
     published_at: payload.published_at,
-    content_html: payload.content_html,
+    content_html: contentHtml,
     content_text: payload.content_text,
     tagline: payload.tagline || "",
     modified_at: payload.modified_at || "",

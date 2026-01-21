@@ -177,11 +177,14 @@
     const rootNode = sanitizeContent(node);
     rootNode
       .querySelectorAll(
-        "aside, nav, footer, header, figure, picture, img, svg, " +
+        "aside, nav, footer, header, " +
           "article.recommended, .recommended, .pull, .pull--left, " +
           ".c-article-related-articles, .c-article-subjects, " +
           ".c-article-latest-content__container, .c-latest-content, " +
-          ".c-article-extras, .c-article-social-list"
+          ".c-article-extras, .c-article-social-list, " +
+          ".c-article-recommendations, .c-article-recommendations-list, " +
+          ".c-article-recommendations-card, .c-nature-box, .c-context-bar, " +
+          ".c-article__pill-button, .c-article-share-box"
       )
       .forEach((el) => el.remove());
     pruneEmptyBlocks(rootNode);

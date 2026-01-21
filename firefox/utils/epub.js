@@ -8,6 +8,398 @@
     return Tsundoku.escapeXml(value);
   }
 
+  const IMAGE_MIME_BY_EXT = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    svg: "image/svg+xml",
+    avif: "image/avif",
+    bmp: "image/bmp",
+    tif: "image/tiff",
+    tiff: "image/tiff"
+  };
+
+  const IMAGE_EXT_BY_MIME = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/gif": "gif",
+    "image/webp": "webp",
+    "image/svg+xml": "svg",
+    "image/avif": "avif",
+    "image/bmp": "bmp",
+    "image/tiff": "tiff"
+  };
+
+  async function inlineImagesInHtml(html, baseUrl) {
+    if (!html) {
+      return html;
+    }
+    const doc = parseHtmlFragment(html);
+    const images = Array.from(doc.querySelectorAll("img"));
+
+    for (const img of images) {
+      const imageUrl = resolveImageSource(img, baseUrl);
+      if (!imageUrl) {
+        continue;
+      }
+
+      if (imageUrl.startsWith("data:")) {
+        img.setAttribute("src", imageUrl);
+        cleanupImageAttributes(img);
+        continue;
+      }
+
+      const imageData = await fetchImageBytes(imageUrl);
+      if (!imageData) {
+        img.setAttribute("src", imageUrl);
+        cleanupImageAttributes(img);
+        continue;
+      }
+
+      const dataUrl = bytesToDataUrl(imageData.bytes, imageData.mime);
+      img.setAttribute("src", dataUrl);
+      cleanupImageAttributes(img);
+    }
+
+    stripPictureSources(doc);
+    return doc.body.innerHTML;
+  }
+
+  async function prepareImagesForEpub(html, baseUrl, context) {
+    if (!html) {
+      return "";
+    }
+    const doc = parseHtmlFragment(html);
+    const images = Array.from(doc.querySelectorAll("img"));
+
+    for (const img of images) {
+      const imageUrl = resolveImageSource(img, baseUrl);
+      if (!imageUrl) {
+        continue;
+      }
+
+      const cached = context.cache.get(imageUrl);
+      if (cached) {
+        img.setAttribute("src", `../${cached.href}`);
+        cleanupImageAttributes(img);
+        continue;
+      }
+
+      let imageData = null;
+      if (imageUrl.startsWith("data:")) {
+        imageData = dataUrlToBytes(imageUrl);
+      } else {
+        imageData = await fetchImageBytes(imageUrl);
+      }
+
+      if (!imageData) {
+        img.setAttribute("src", imageUrl);
+        cleanupImageAttributes(img);
+        continue;
+      }
+
+      const mime = normalizeImageMime(imageData.mime, imageUrl);
+      const ext = guessImageExtension(mime, imageUrl);
+      const id = `img-${context.nextId}`;
+      const href = `images/${id}.${ext}`;
+      const asset = {
+        id,
+        href,
+        mediaType: mime,
+        data: imageData.bytes
+      };
+
+      context.nextId += 1;
+      context.cache.set(imageUrl, asset);
+      context.assets.push(asset);
+
+      img.setAttribute("src", `../${href}`);
+      cleanupImageAttributes(img);
+    }
+
+    stripPictureSources(doc);
+    return doc.body.innerHTML;
+  }
+
+  function parseHtmlFragment(html) {
+    const parser = new DOMParser();
+    return parser.parseFromString(html, "text/html");
+  }
+
+  function resolveImageSource(img, baseUrl) {
+    if (!img) {
+      return "";
+    }
+    const src = getAttribute(img, ["src"]);
+    const dataSrc = getAttribute(img, [
+      "data-src",
+      "data-original",
+      "data-lazy-src",
+      "data-actualsrc",
+      "data-url"
+    ]);
+    const srcset = getAttribute(img, ["srcset", "data-srcset", "data-lazy-srcset"]);
+    const srcsetUrl = pickSrcFromSrcset(srcset, baseUrl);
+
+    const normalizedSrc = normalizeImageUrl(src, baseUrl);
+    const normalizedDataSrc = normalizeImageUrl(dataSrc, baseUrl);
+
+    if (normalizedSrc && !isLikelyPlaceholderUrl(normalizedSrc)) {
+      return normalizedSrc;
+    }
+    if (normalizedDataSrc) {
+      return normalizedDataSrc;
+    }
+    if (srcsetUrl) {
+      return srcsetUrl;
+    }
+    return normalizedSrc || normalizedDataSrc || srcsetUrl || "";
+  }
+
+  function normalizeImageUrl(rawUrl, baseUrl) {
+    const value = String(rawUrl || "").trim();
+    if (!value) {
+      return "";
+    }
+    if (/^javascript:/i.test(value)) {
+      return "";
+    }
+    if (/^(data|blob):/i.test(value)) {
+      return value;
+    }
+    if (value.startsWith("//")) {
+      const protocol = getBaseProtocol(baseUrl) || "https:";
+      return `${protocol}${value}`;
+    }
+    try {
+      if (baseUrl) {
+        return new URL(value, baseUrl).toString();
+      }
+      return new URL(value).toString();
+    } catch (error) {
+      return value;
+    }
+  }
+
+  function getBaseProtocol(baseUrl) {
+    if (!baseUrl) {
+      return "";
+    }
+    try {
+      return new URL(baseUrl).protocol;
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function pickSrcFromSrcset(srcset, baseUrl) {
+    const raw = String(srcset || "").trim();
+    if (!raw) {
+      return "";
+    }
+    const candidates = raw
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => {
+        const [url, descriptor] = entry.split(/\s+/, 2);
+        const normalized = normalizeImageUrl(url, baseUrl);
+        const typeScore = scoreImageType(normalized);
+        let sizeScore = 0;
+        if (descriptor) {
+          const value = Number.parseFloat(descriptor);
+          if (Number.isFinite(value)) {
+            if (descriptor.endsWith("w")) {
+              sizeScore = value;
+            } else if (descriptor.endsWith("x")) {
+              sizeScore = value * 1000;
+            }
+          }
+        }
+        return {
+          url: normalized,
+          score: typeScore * 100000 + sizeScore
+        };
+      })
+      .filter((candidate) => candidate.url);
+
+    if (!candidates.length) {
+      return "";
+    }
+    candidates.sort((a, b) => b.score - a.score);
+    return candidates[0].url;
+  }
+
+  function scoreImageType(url) {
+    const ext = getExtensionFromUrl(url);
+    if (!ext) {
+      return 0;
+    }
+    if (ext === "jpg" || ext === "jpeg" || ext === "png") {
+      return 2;
+    }
+    if (ext === "gif" || ext === "svg" || ext === "bmp" || ext === "tif" || ext === "tiff") {
+      return 1;
+    }
+    return 0;
+  }
+
+  function getExtensionFromUrl(url) {
+    if (!url) {
+      return "";
+    }
+    try {
+      const parsed = new URL(url, "https://example.com");
+      const path = parsed.pathname || "";
+      const last = path.split("/").pop() || "";
+      const dot = last.lastIndexOf(".");
+      if (dot === -1) {
+        return "";
+      }
+      return last.slice(dot + 1).toLowerCase();
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function normalizeImageMime(value, fallbackUrl) {
+    const raw = String(value || "").split(";")[0].trim().toLowerCase();
+    const resolved = raw || guessImageMimeFromUrl(fallbackUrl);
+    if (!resolved) {
+      return "image/jpeg";
+    }
+    if (resolved === "image/jpg" || resolved === "image/pjpeg") {
+      return "image/jpeg";
+    }
+    return resolved;
+  }
+
+  function guessImageMimeFromUrl(url) {
+    const ext = getExtensionFromUrl(url);
+    if (!ext) {
+      return "";
+    }
+    return IMAGE_MIME_BY_EXT[ext] || "";
+  }
+
+  function guessImageExtension(mime, url) {
+    const normalized = normalizeImageMime(mime, url);
+    if (IMAGE_EXT_BY_MIME[normalized]) {
+      return IMAGE_EXT_BY_MIME[normalized];
+    }
+    const fallback = getExtensionFromUrl(url);
+    return fallback || "jpg";
+  }
+
+  function isLikelyPlaceholderUrl(url) {
+    const value = String(url || "").trim().toLowerCase();
+    if (!value) {
+      return false;
+    }
+    if (value === "about:blank") {
+      return true;
+    }
+    if (value.startsWith("data:image/gif")) {
+      return true;
+    }
+    if (value.startsWith("data:image/png") && value.length < 200) {
+      return true;
+    }
+    return false;
+  }
+
+  function cleanupImageAttributes(img) {
+    [
+      "srcset",
+      "data-srcset",
+      "data-lazy-srcset",
+      "data-src",
+      "data-original",
+      "data-lazy-src",
+      "data-actualsrc",
+      "data-url",
+      "sizes"
+    ].forEach((attr) => img.removeAttribute(attr));
+  }
+
+  function stripPictureSources(doc) {
+    doc.querySelectorAll("picture source").forEach((source) => source.remove());
+  }
+
+  function getAttribute(node, names) {
+    for (const name of names) {
+      const value = node.getAttribute(name);
+      if (value && String(value).trim()) {
+        return value;
+      }
+    }
+    return "";
+  }
+
+  async function fetchImageBytes(url) {
+    if (!url || /^(data|blob):/i.test(url)) {
+      return null;
+    }
+    try {
+      const response = await fetch(url, { credentials: "include" });
+      if (!response.ok) {
+        return null;
+      }
+      const buffer = await response.arrayBuffer();
+      if (!buffer || buffer.byteLength === 0) {
+        return null;
+      }
+      const mime = normalizeImageMime(response.headers.get("content-type"), url);
+      return {
+        bytes: new Uint8Array(buffer),
+        mime
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function bytesToDataUrl(bytes, mime) {
+    const chunkSize = 0x8000;
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode.apply(
+        null,
+        bytes.subarray(i, i + chunkSize)
+      );
+    }
+    const base64 = btoa(binary);
+    const safeMime = normalizeImageMime(mime, "");
+    return `data:${safeMime};base64,${base64}`;
+  }
+
+  function dataUrlToBytes(dataUrl) {
+    const raw = String(dataUrl || "");
+    if (!raw.startsWith("data:")) {
+      return null;
+    }
+    const commaIndex = raw.indexOf(",");
+    if (commaIndex === -1) {
+      return null;
+    }
+    const meta = raw.slice(5, commaIndex);
+    const data = raw.slice(commaIndex + 1);
+    const isBase64 = /;base64/i.test(meta);
+    const mime = normalizeImageMime(meta.split(";")[0] || "", "");
+    if (isBase64) {
+      const binary = atob(data);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return { bytes, mime };
+    }
+    const decoded = decodeURIComponent(data);
+    return { bytes: encoder.encode(decoded), mime };
+  }
+
   async function buildEpub(
     items,
     { title = "To Be Read", creator = "Tsundoku", exportedAt = "" } = {}
@@ -17,16 +409,28 @@
     const modified = `${exportDate}T00:00:00Z`;
     const coverImage = await buildCoverImage({ title, creator, exportDate });
     const coverPage = buildCoverPage(title);
+    const imageContext = {
+      cache: new Map(),
+      assets: [],
+      nextId: 1
+    };
+    const chapters = [];
 
-    const chapters = items.map((item, index) => {
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index];
       const chapterId = `chap-${index + 1}`;
-      return {
+      const rawHtml = item.content_html || "";
+      const preparedHtml = rawHtml
+        ? await prepareImagesForEpub(rawHtml, item.url, imageContext)
+        : "";
+      const chapterItem = rawHtml ? { ...item, content_html: preparedHtml } : item;
+      chapters.push({
         id: chapterId,
         title: item.title || `Chapter ${index + 1}`,
         href: `chapters/${chapterId}.xhtml`,
-        content: buildChapter(item, index + 1)
-      };
-    });
+        content: buildChapter(chapterItem, index + 1)
+      });
+    }
 
     const entries = [
       {
@@ -52,7 +456,15 @@
       {
         name: "OEBPS/content.opf",
         data: encoder.encode(
-          buildOpf(title, creator, exportDate, bookId, modified, chapters)
+          buildOpf(
+            title,
+            creator,
+            exportDate,
+            bookId,
+            modified,
+            chapters,
+            imageContext.assets
+          )
         )
       },
       {
@@ -63,6 +475,10 @@
         name: "OEBPS/toc.ncx",
         data: encoder.encode(buildNcx(title, bookId, chapters))
       },
+      ...imageContext.assets.map((asset) => ({
+        name: `OEBPS/${asset.href}`,
+        data: asset.data
+      })),
       ...chapters.map((chapter) => ({
         name: `OEBPS/${chapter.href}`,
         data: encoder.encode(chapter.content)
@@ -112,6 +528,21 @@ h1 {
   margin-bottom: 0.9em;
 }
 
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+figure {
+  margin: 1.4em 0;
+}
+
+figcaption {
+  font-size: 0.9em;
+  color: #555;
+  margin-top: 0.4em;
+}
+
 .source {
   margin-top: 1.6em;
   font-size: 0.9em;
@@ -131,13 +562,25 @@ pre {
 }`;
   }
 
-  function buildOpf(title, creator, exportDate, bookId, modified, chapters) {
+  function buildOpf(
+    title,
+    creator,
+    exportDate,
+    bookId,
+    modified,
+    chapters,
+    assets = []
+  ) {
     const manifestItems = [
       `<item id="cover" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>`,
       `<item id="cover-page" href="cover.xhtml" media-type="application/xhtml+xml"/>`,
       `<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>`,
       `<item id="toc" href="toc.ncx" media-type="application/x-dtbncx+xml"/>`,
       `<item id="css" href="styles.css" media-type="text/css"/>`,
+      ...assets.map(
+        (asset) =>
+          `<item id="${asset.id}" href="${asset.href}" media-type="${asset.mediaType}"/>`
+      ),
       ...chapters.map(
         (chapter) =>
           `<item id="${chapter.id}" href="${chapter.href}" media-type="application/xhtml+xml"/>`
@@ -664,4 +1107,5 @@ pre {
   })();
 
   Tsundoku.buildEpub = buildEpub;
+  Tsundoku.inlineImagesInHtml = inlineImagesInHtml;
 })();

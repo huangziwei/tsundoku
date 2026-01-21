@@ -101,7 +101,7 @@
   ParserUtils.sanitizeContent = function sanitizeContent(node) {
     const rootNode = node ? node.cloneNode(true) : document.createElement("div");
     const junkSelectors =
-      "script, style, noscript, nav, footer, header, aside, form, iframe, svg, canvas, figure, figcaption, button, input, textarea, select";
+      "script, style, noscript, nav, footer, header, aside, form, iframe, canvas, button, input, textarea, select";
 
     rootNode.querySelectorAll(junkSelectors).forEach((el) => el.remove());
     rootNode.querySelectorAll("[aria-hidden='true']").forEach((el) => el.remove());

@@ -101,10 +101,7 @@
       ".citation",
       ".citation-needed",
       "span.IPA",
-      ".ext-phonos",
-      ".thumb",
-      ".gallery",
-      "img"
+      ".ext-phonos"
     ];
 
     rootNode
