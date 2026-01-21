@@ -255,42 +255,91 @@ pre {
   async function buildCoverImage({ title, creator, exportDate }) {
     const width = 1600;
     const height = 2400;
-    const padding = 160;
+    const padding = 140;
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       return new Uint8Array();
     }
 
-    ctx.fillStyle = "#f7f4ef";
+    const palette = pickCoverPalette();
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+
+    const gradient = ctx.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, palette.background);
+    gradient.addColorStop(1, palette.backgroundAlt);
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
 
-    ctx.fillStyle = "#d65a31";
-    ctx.fillRect(0, 0, width, 18);
+    ctx.fillStyle = palette.accent;
+    ctx.fillRect(0, 0, width, 26);
+
+    ctx.save();
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = palette.accent;
+    ctx.beginPath();
+    ctx.arc(width * 0.82, height * 0.78, width * 0.36, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
 
     const titleText = normalizeCoverText(title || "To Be Read");
-    ctx.fillStyle = "#1b1b1b";
-    ctx.font = '700 96px "Georgia", "Times New Roman", serif';
-    const titleLines = wrapText(ctx, titleText, width - padding * 2);
-    const titleLineHeight = 112;
-    let y = 420;
-    titleLines.forEach((line) => {
+    const titleTop = 360;
+    const titleMaxHeight = height - titleTop - 520;
+    const titleFit = fitCoverTitle(ctx, titleText, width - padding * 2, titleMaxHeight);
+    ctx.fillStyle = palette.text;
+    ctx.font = `700 ${titleFit.fontSize}px "Georgia", "Times New Roman", serif`;
+    ctx.shadowColor = palette.shadow;
+    ctx.shadowBlur = 14;
+    ctx.shadowOffsetY = 4;
+    let y = titleTop;
+    titleFit.lines.forEach((line) => {
       ctx.fillText(line, padding, y);
-      y += titleLineHeight;
+      y += titleFit.lineHeight;
     });
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
 
     const creatorText = normalizeCoverText(creator || "Tsundoku");
-    const metaY = Math.max(y + 160, height - 420);
-    ctx.fillStyle = "#2f4858";
-    ctx.font =
-      '600 44px "Alegreya Sans", "Gill Sans", "Trebuchet MS", sans-serif';
+    const creatorFontSize = 56;
+    const dateFontSize = 48;
+    const creatorLineHeight = Math.round(creatorFontSize * 1.16);
+    const dateLineHeight = Math.round(dateFontSize * 1.2);
+    const metaBlockHeight =
+      creatorLineHeight + (exportDate ? dateLineHeight : 0);
+    const metaY = Math.max(y + 120, height - metaBlockHeight - 220);
+
+    ctx.font = `600 ${creatorFontSize}px "Alegreya Sans", "Gill Sans", "Trebuchet MS", sans-serif`;
+    const creatorWidth = ctx.measureText(creatorText).width;
+    let dateText = "";
+    let dateWidth = 0;
+    if (exportDate) {
+      dateText = normalizeCoverText(exportDate);
+      ctx.font = `500 ${dateFontSize}px "Alegreya Sans", "Gill Sans", "Trebuchet MS", sans-serif`;
+      dateWidth = ctx.measureText(dateText).width;
+    }
+
+    const panelWidth = Math.max(creatorWidth, dateWidth) + 72;
+    const panelHeight = metaBlockHeight + 24;
+    drawRoundedRect(
+      ctx,
+      padding - 12,
+      metaY - 12,
+      panelWidth,
+      panelHeight,
+      28,
+      palette.panel
+    );
+
+    ctx.fillStyle = palette.meta;
+    ctx.font = `600 ${creatorFontSize}px "Alegreya Sans", "Gill Sans", "Trebuchet MS", sans-serif`;
     ctx.fillText(creatorText, padding, metaY);
 
     if (exportDate) {
-      ctx.fillStyle = "#6b6b6b";
-      ctx.font =
-        '400 34px "Alegreya Sans", "Gill Sans", "Trebuchet MS", sans-serif';
-      ctx.fillText(normalizeCoverText(exportDate), padding, metaY + 56);
+      ctx.fillStyle = palette.sub;
+      ctx.font = `500 ${dateFontSize}px "Alegreya Sans", "Gill Sans", "Trebuchet MS", sans-serif`;
+      ctx.fillText(dateText, padding, metaY + creatorLineHeight);
     }
 
     return canvasToJpegBytes(canvas);
@@ -321,6 +370,62 @@ pre {
     }
 
     return lines;
+  }
+
+  function fitCoverTitle(ctx, text, maxWidth, maxHeight) {
+    const maxSize = 132;
+    const minSize = 84;
+    const maxLines = 6;
+    const lineHeightRatio = 1.18;
+    for (let size = maxSize; size >= minSize; size -= 4) {
+      ctx.font = `700 ${size}px "Georgia", "Times New Roman", serif`;
+      const lines = wrapText(ctx, text, maxWidth);
+      const lineHeight = Math.round(size * lineHeightRatio);
+      if (lines.length <= maxLines && lines.length * lineHeight <= maxHeight) {
+        return { lines, fontSize: size, lineHeight };
+      }
+    }
+
+    const lineHeight = Math.round(minSize * lineHeightRatio);
+    const maxFitLines = Math.max(1, Math.min(maxLines, Math.floor(maxHeight / lineHeight)));
+    let lines = wrapText(ctx, text, maxWidth);
+    if (lines.length > maxFitLines) {
+      lines = lines.slice(0, maxFitLines);
+      lines[maxFitLines - 1] = `${lines[maxFitLines - 1].trim()}...`;
+    }
+    return { lines, fontSize: minSize, lineHeight };
+  }
+
+  function pickCoverPalette() {
+    const hue = Math.floor(Math.random() * 360);
+    const dark = Math.random() < 0.45;
+    const background = `hsl(${hue}, 42%, ${dark ? 22 : 88}%)`;
+    const backgroundAlt = `hsl(${(hue + 18) % 360}, 45%, ${dark ? 30 : 78}%)`;
+    const accentHue = (hue + 160 + Math.floor(Math.random() * 40)) % 360;
+    const accent = `hsl(${accentHue}, 72%, ${dark ? 64 : 38}%)`;
+    return {
+      background,
+      backgroundAlt,
+      accent,
+      text: dark ? "#fef6e8" : "#1b1b1b",
+      meta: dark ? "rgba(254,246,232,0.9)" : "#2f4858",
+      sub: dark ? "rgba(254,246,232,0.75)" : "#6b6b6b",
+      panel: dark ? "rgba(0,0,0,0.32)" : "rgba(255,255,255,0.7)",
+      shadow: dark ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.18)"
+    };
+  }
+
+  function drawRoundedRect(ctx, x, y, width, height, radius, fillStyle) {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + width, y, x + width, y + height, r);
+    ctx.arcTo(x + width, y + height, x, y + height, r);
+    ctx.arcTo(x, y + height, x, y, r);
+    ctx.arcTo(x, y, x + width, y, r);
+    ctx.closePath();
+    ctx.fillStyle = fillStyle;
+    ctx.fill();
   }
 
   function createCanvas(width, height) {
