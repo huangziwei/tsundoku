@@ -220,8 +220,10 @@ async function exportQueue({ queueId, title = "To Be Read" } = {}) {
     exportedAt: dateStamp
   });
   await downloadArrayBuffer(buffer, filename);
+  await deleteItemsByQueue(resolvedQueueId);
+  const count = await countItems(resolvedQueueId);
 
-  return { ok: true, filename };
+  return { ok: true, filename, count };
 }
 
 async function listQueuesMessage() {

@@ -55,7 +55,8 @@ exportAllButton.addEventListener("click", async () => {
     if (!response?.ok) {
       throw new Error(response?.error || "Export failed");
     }
-    setStatus(`Exported ${response.filename}`);
+    await loadItems({ quiet: true });
+    setStatus(`Exported ${response.filename} and cleared the queue`);
   } catch (error) {
     setStatus(error.message || "Export failed");
   } finally {
