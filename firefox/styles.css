@@ -118,8 +118,6 @@ button:disabled {
 }
 
 .list.compact {
-  max-height: 520px;
-  overflow-y: auto;
   padding-right: 4px;
 }
 
@@ -171,8 +169,6 @@ button:disabled {
   line-height: 1.6;
   font-family: "Georgia", "Times New Roman", serif;
   color: #1b1b1b;
-  max-height: 480px;
-  overflow-y: auto;
 }
 
 .preview-controls {
@@ -194,19 +190,6 @@ button:disabled {
   padding: 4px 10px;
   font-size: 11px;
   letter-spacing: 0.4px;
-}
-
-.preview-body.is-editing {
-  border: 1px dashed var(--border);
-  border-radius: 10px;
-  padding: 8px;
-  background: #fff8ef;
-  min-height: 240px;
-}
-
-.preview-body.is-editing:focus {
-  outline: 2px solid rgba(214, 90, 49, 0.35);
-  outline-offset: 2px;
 }
 
 .preview h1 {

@@ -1,0 +1,90 @@
+:root {
+  color-scheme: light;
+}
+
+body {
+  min-width: 0;
+}
+
+main.editor {
+  padding: 24px;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.editor-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.editor-headline {
+  min-width: 0;
+}
+
+.editor-headline h1 {
+  margin: 4px 0 8px;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.editor-actions.bottom {
+  margin-top: 12px;
+}
+
+.editor-panel {
+  margin-top: 16px;
+  padding: 16px;
+}
+
+.editor-body {
+  min-height: 60vh;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px dashed var(--border);
+  background: #fffdf7;
+  font-size: 16px;
+  line-height: 1.7;
+  font-family: "Georgia", "Times New Roman", serif;
+  cursor: text;
+}
+
+.editor-body:focus {
+  outline: 2px solid rgba(214, 90, 49, 0.35);
+  outline-offset: 2px;
+}
+
+.editor-body h1,
+.editor-body h2,
+.editor-body h3,
+.editor-body h4,
+.editor-body h5,
+.editor-body h6 {
+  margin-top: 1.2em;
+}
+
+#editor-status {
+  margin-top: 12px;
+}
+
+@media (max-width: 720px) {
+  main.editor {
+    padding: 16px;
+  }
+
+  .editor-panel {
+    padding: 12px;
+  }
+
+  .editor-body {
+    min-height: 50vh;
+    padding: 12px;
+  }
+}

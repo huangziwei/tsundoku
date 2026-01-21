@@ -1,4 +1,4 @@
-const { formatDate, formatDateTime, getBrowser, normalizeWhitespace } = Tsundoku;
+const { formatDate, formatDateTime, getBrowser } = Tsundoku;
 const api = getBrowser();
 const statusEl = document.getElementById("status");
 const countEl = document.getElementById("queue-count");
@@ -361,15 +361,7 @@ function buildItemRow(item, index) {
 
   previewButton.addEventListener("click", () => {
     if (!preview.dataset.loaded) {
-      preview.appendChild(
-        buildPreviewContent(item, {
-          onUpdated: (updated) => {
-            Object.assign(item, updated);
-            meta.textContent = buildMeta(item);
-            excerpt.textContent = item.excerpt || "";
-          }
-        })
-      );
+      preview.appendChild(buildPreviewContent(item));
       preview.dataset.loaded = "true";
     }
     const willShow = preview.hidden;
@@ -442,7 +434,7 @@ function createIconButton({ label, path, onClick, disabled = false }) {
   return button;
 }
 
-function buildPreviewContent(item, { onUpdated } = {}) {
+function buildPreviewContent(item) {
   const wrapper = document.createElement("div");
   wrapper.className = "preview-wrapper";
 
@@ -517,112 +509,11 @@ function buildPreviewContent(item, { onUpdated } = {}) {
   wrapper.appendChild(bottomControls.controls);
 
   const editButtons = [topControls.editButton, bottomControls.editButton];
-  const saveButtons = [topControls.saveButton, bottomControls.saveButton];
-  const cancelButtons = [topControls.cancelButton, bottomControls.cancelButton];
-
-  let originalHtml = "";
-
   editButtons.forEach((button) => {
     button.addEventListener("click", () => {
-      handleEdit();
+      openEditor(item);
     });
   });
-
-  cancelButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      handleCancel();
-    });
-  });
-
-  saveButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      handleSave();
-    });
-  });
-
-  function handleEdit() {
-    if (!item.id) {
-      setStatus("Missing item id");
-      return;
-    }
-    originalHtml = content.innerHTML;
-    setEditing(true);
-    content.focus();
-  }
-
-  function handleCancel() {
-    content.innerHTML = originalHtml;
-    setEditing(false);
-  }
-
-  async function handleSave() {
-    if (!item.id) {
-      setStatus("Missing item id");
-      return;
-    }
-    const { html: nextHtml, text: nextText } = serializeEditedContent(content);
-    setStatus("Saving edits...");
-    setEditButtonsDisabled(true);
-    try {
-      const response = await api.runtime.sendMessage({
-        type: "queue/update-item",
-        id: item.id,
-        content_html: nextHtml,
-        content_text: nextText
-      });
-      if (!response?.ok || !response.item) {
-        throw new Error(response?.error || "Unable to save edits");
-      }
-      Object.assign(item, response.item);
-      if (onUpdated) {
-        onUpdated(response.item);
-      }
-      content.innerHTML = nextHtml;
-      setEditing(false);
-      setStatus("Edits saved");
-    } catch (error) {
-      setStatus(error.message || "Unable to save edits");
-    } finally {
-      setEditButtonsDisabled(false);
-    }
-  }
-
-  function setEditing(next) {
-    editButtons.forEach((button) => {
-      button.hidden = next;
-    });
-    saveButtons.forEach((button) => {
-      button.hidden = !next;
-    });
-    cancelButtons.forEach((button) => {
-      button.hidden = !next;
-    });
-    if (next) {
-      content.setAttribute("contenteditable", "true");
-      content.setAttribute("role", "textbox");
-      content.setAttribute("aria-multiline", "true");
-      content.setAttribute("spellcheck", "true");
-      content.classList.add("is-editing");
-    } else {
-      content.removeAttribute("contenteditable");
-      content.removeAttribute("role");
-      content.removeAttribute("aria-multiline");
-      content.removeAttribute("spellcheck");
-      content.classList.remove("is-editing");
-    }
-  }
-
-  function setEditButtonsDisabled(value) {
-    editButtons.forEach((button) => {
-      button.disabled = value;
-    });
-    saveButtons.forEach((button) => {
-      button.disabled = value;
-    });
-    cancelButtons.forEach((button) => {
-      button.disabled = value;
-    });
-  }
 
   function createPreviewControls(position) {
     const controls = document.createElement("div");
@@ -635,24 +526,23 @@ function buildPreviewContent(item, { onUpdated } = {}) {
     editButton.className = "secondary";
     editButton.textContent = "Edit";
 
-    const saveButton = document.createElement("button");
-    saveButton.className = "primary";
-    saveButton.textContent = "Save";
-    saveButton.hidden = true;
-
-    const cancelButton = document.createElement("button");
-    cancelButton.className = "ghost";
-    cancelButton.textContent = "Cancel";
-    cancelButton.hidden = true;
-
     controls.appendChild(editButton);
-    controls.appendChild(saveButton);
-    controls.appendChild(cancelButton);
 
-    return { controls, editButton, saveButton, cancelButton };
+    return { controls, editButton };
   }
 
   return wrapper;
+}
+
+function openEditor(item) {
+  if (!item?.id) {
+    setStatus("Missing item id");
+    return;
+  }
+  const url = api.runtime.getURL(
+    `editor.html?id=${encodeURIComponent(item.id)}`
+  );
+  api.tabs.create({ url });
 }
 
 function appendHtmlSafely(container, html) {
@@ -665,14 +555,6 @@ function appendHtmlSafely(container, html) {
     fragment.appendChild(body.firstChild);
   }
   container.appendChild(fragment);
-}
-
-function serializeEditedContent(content) {
-  const clone = content.cloneNode(true);
-  sanitizePreviewNodes(clone);
-  const html = clone.innerHTML;
-  const text = normalizeWhitespace(clone.textContent || "");
-  return { html, text };
 }
 
 function sanitizePreviewNodes(rootNode) {

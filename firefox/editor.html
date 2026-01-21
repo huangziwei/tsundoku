@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Edit Article - Tsundoku</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="editor.css" />
+  </head>
+  <body>
+    <main class="editor">
+      <header class="panel editor-header">
+        <div class="editor-headline">
+          <p class="small" id="editor-kicker">Editing article</p>
+          <h1 id="editor-title">Loading...</h1>
+          <p class="small" id="editor-meta"></p>
+        </div>
+        <div class="editor-actions top">
+          <button class="ghost" id="cancel-top">Cancel</button>
+          <button class="primary" id="save-top">Save</button>
+        </div>
+      </header>
+      <section class="panel editor-panel">
+        <div class="editor-body" id="editor-content"></div>
+      </section>
+      <div class="editor-actions bottom">
+        <button class="ghost" id="cancel-bottom">Cancel</button>
+        <button class="primary" id="save-bottom">Save</button>
+      </div>
+      <div class="status" id="editor-status">Loading...</div>
+    </main>
+    <script src="utils/utils.js"></script>
+    <script src="editor.js"></script>
+  </body>
+</html>

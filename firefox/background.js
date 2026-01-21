@@ -60,6 +60,8 @@ async function handleMessage(message) {
       return clearQueue(message.queueId);
     case "queue/reorder":
       return reorderQueue(message.orderedIds, message.queueId);
+    case "queue/get-item":
+      return getQueueItem(message.id);
     case "queue/update-item":
       return updateQueueItem(message);
     case "queue/export":
@@ -178,6 +180,17 @@ async function reorderQueue(orderedIds, queueId) {
   );
 
   return { ok: true };
+}
+
+async function getQueueItem(id) {
+  if (!id) {
+    return { ok: false, error: "Missing item id" };
+  }
+  const [item] = await getItemsByIds([id]);
+  if (!item) {
+    return { ok: false, error: "Item not found" };
+  }
+  return { ok: true, item };
 }
 
 async function updateQueueItem({ id, content_html, content_text } = {}) {
