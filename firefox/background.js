@@ -270,7 +270,13 @@ async function exportQueue({ queueId, title = "To Be Read" } = {}) {
 async function listQueuesMessage() {
   const queues = await listQueues();
   const defaultQueue = await ensureDefaultQueue();
-  return { ok: true, queues, defaultQueueId: defaultQueue.id };
+  const rssQueue = await ensureRssQueue();
+  return {
+    ok: true,
+    queues,
+    defaultQueueId: defaultQueue.id,
+    rssQueueId: rssQueue.id || RSS_QUEUE_ID
+  };
 }
 
 async function listFeedsMessage() {

@@ -11,10 +11,12 @@ const renameQueueButton = document.getElementById("rename-queue");
 const newQueueButton = document.getElementById("new-queue");
 const openRssButton = document.getElementById("open-rss");
 const syncRssButton = document.getElementById("sync-rss");
+const toolbarEl = document.getElementById("queue-toolbar");
 
 let items = [];
 let queues = [];
 let activeQueueId = "";
+let rssQueueId = "";
 let isBusy = false;
 const STORAGE_ACTIVE_QUEUE_KEY = "activeQueueId";
 
@@ -235,6 +237,7 @@ async function loadQueues({ initial = false } = {}) {
   }
   queues = response.queues || [];
   const defaultId = response.defaultQueueId || queues[0]?.id || "";
+  rssQueueId = response.rssQueueId || "rss-inbox";
   let selectedId = activeQueueId;
   let storedId = "";
   if (initial) {
@@ -248,6 +251,7 @@ async function loadQueues({ initial = false } = {}) {
   }
   activeQueueId = selectedId;
   renderQueueSelect();
+  updateQueueActions();
   if (initial && activeQueueId && activeQueueId !== storedId) {
     await saveActiveQueue(activeQueueId);
   }
@@ -281,6 +285,7 @@ async function setActiveQueue(queueId, { persist = true, force = false } = {}) {
     await saveActiveQueue(queueId);
   }
   await loadItems({ quiet: true });
+  updateQueueActions();
 }
 
 async function switchQueue(queueId) {
@@ -695,6 +700,51 @@ function syncControls() {
   newQueueButton.disabled = isBusy;
   openRssButton.disabled = isBusy;
   syncRssButton.disabled = isBusy;
+  updateQueueActions();
+}
+
+function updateQueueActions() {
+  const isRss = activeQueueId && activeQueueId === rssQueueId;
+  if (!toolbarEl) {
+    return;
+  }
+
+  saveButton.hidden = isRss;
+  syncRssButton.hidden = !isRss;
+  openRssButton.hidden = !isRss;
+
+  if (isRss) {
+    setPrimaryButton(syncRssButton, true);
+    setPrimaryButton(saveButton, false);
+  } else {
+    setPrimaryButton(syncRssButton, false);
+    setPrimaryButton(saveButton, true);
+  }
+
+  const order = isRss
+    ? [syncRssButton, openRssButton, exportAllButton, deleteAllButton, saveButton]
+    : [saveButton, exportAllButton, deleteAllButton, syncRssButton, openRssButton];
+
+  order.forEach((button) => {
+    if (button && button.parentElement === toolbarEl) {
+      toolbarEl.appendChild(button);
+    }
+  });
+}
+
+function setPrimaryButton(button, isPrimary) {
+  if (!button) {
+    return;
+  }
+  if (isPrimary) {
+    button.classList.add("primary");
+    button.classList.remove("secondary", "ghost");
+  } else {
+    button.classList.remove("primary");
+    if (!button.classList.contains("secondary") && !button.classList.contains("ghost")) {
+      button.classList.add("secondary");
+    }
+  }
 }
 
 async function moveItem(fromIndex, delta) {
