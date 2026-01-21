@@ -406,6 +406,10 @@
   ) {
     const bookId = makeBookId();
     const exportDate = exportedAt || new Date().toISOString().slice(0, 10);
+    const metadataTitleBase = title || "To Be Read";
+    const metadataTitle = exportDate
+      ? `${metadataTitleBase} from ${exportDate}`
+      : metadataTitleBase;
     const modified = `${exportDate}T00:00:00Z`;
     const coverImage = await buildCoverImage({ title, creator, exportDate });
     const coverPage = buildCoverPage(title);
@@ -457,7 +461,7 @@
         name: "OEBPS/content.opf",
         data: encoder.encode(
           buildOpf(
-            title,
+            metadataTitle,
             creator,
             exportDate,
             bookId,
@@ -473,7 +477,7 @@
       },
       {
         name: "OEBPS/toc.ncx",
-        data: encoder.encode(buildNcx(title, bookId, chapters))
+        data: encoder.encode(buildNcx(metadataTitle, bookId, chapters))
       },
       ...imageContext.assets.map((asset) => ({
         name: `OEBPS/${asset.href}`,

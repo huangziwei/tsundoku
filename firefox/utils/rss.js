@@ -22,25 +22,21 @@
     const htmlCandidates = await discoverFromHtml(normalized);
     const commonCandidates = buildCommonCandidates(normalized);
     const candidates = uniqueCandidates([...htmlCandidates, ...commonCandidates]);
+    const prioritized = prioritizeCandidates(candidates);
 
-    const feeds = [];
-    for (const candidate of candidates) {
+    for (const candidate of prioritized) {
       const result = await tryParseFeed(candidate.url);
       if (result.ok) {
-        feeds.push(result.feed);
+        return {
+          ok: true,
+          feeds: [result.feed],
+          source: "discovered",
+          candidates: candidates.length
+        };
       }
     }
 
-    if (!feeds.length) {
-      return { ok: false, error: "No feeds discovered", feeds: [] };
-    }
-
-    return {
-      ok: true,
-      feeds,
-      source: "discovered",
-      candidates: candidates.length
-    };
+    return { ok: false, error: "No feeds discovered", feeds: [] };
   }
 
   async function syncFeeds({ initialLimit = DEFAULT_INITIAL_LIMIT } = {}) {
@@ -252,8 +248,12 @@
         return;
       }
       const resolved = resolveUrl(url, href);
-      if (resolved) {
-        candidates.push({ url: resolved, title: link.getAttribute("title") || "" });
+      if (resolved && !isCommentFeedUrl(resolved)) {
+        candidates.push({
+          url: resolved,
+          title: link.getAttribute("title") || "",
+          type
+        });
       }
     });
     return candidates;
@@ -285,7 +285,7 @@
     bases.forEach((base) => {
       suffixes.forEach((suffix) => {
         const candidate = new URL(suffix, base).toString();
-        if (candidate !== inputUrl) {
+        if (candidate !== inputUrl && !isCommentFeedUrl(candidate)) {
           candidates.push({ url: candidate });
         }
       });
@@ -312,14 +312,55 @@
     const seen = new Set();
     const unique = [];
     candidates.forEach((candidate) => {
+      if (isCommentFeedUrl(candidate.url)) {
+        return;
+      }
       const normalized = normalizeFeedUrl(candidate.url) || candidate.url;
-      if (!normalized || seen.has(normalized)) {
+      if (!normalized || isCommentFeedUrl(normalized) || seen.has(normalized)) {
         return;
       }
       seen.add(normalized);
       unique.push({ ...candidate, url: normalized });
     });
     return unique;
+  }
+
+  function prioritizeCandidates(candidates) {
+    return candidates
+      .map((candidate, index) => ({
+        candidate,
+        index,
+        priority: getCandidatePriority(candidate)
+      }))
+      .sort((a, b) => a.priority - b.priority || a.index - b.index)
+      .map((entry) => entry.candidate);
+  }
+
+  function getCandidatePriority(candidate) {
+    const kind = getCandidateKind(candidate);
+    if (kind === "atom") {
+      return 0;
+    }
+    if (kind === "rss") {
+      return 1;
+    }
+    return 2;
+  }
+
+  function getCandidateKind(candidate) {
+    const type = String(candidate?.type || "").toLowerCase();
+    const url = String(candidate?.url || "").toLowerCase();
+    if (type.includes("atom") || url.includes("atom")) {
+      return "atom";
+    }
+    if (type.includes("rss") || url.includes("rss")) {
+      return "rss";
+    }
+    return "other";
+  }
+
+  function isCommentFeedUrl(url) {
+    return String(url || "").toLowerCase().includes("comment");
   }
 
   function looksLikeFeedHref(href) {
