@@ -13,6 +13,8 @@
   const sanitizeContent = ParserUtils.sanitizeContent ||
     ((node) => (node ? node.cloneNode(true) : document.createElement("div")));
   const pruneEmptyBlocks = ParserUtils.pruneEmptyBlocks || (() => {});
+  const formatParagraphBreaks = ParserUtils.formatParagraphBreaks ||
+    ((html) => String(html || "").replace(/<\/p>\s*<p/gi, "</p>\n\n<p"));
 
   api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!message || message.type !== "extract") {
@@ -46,7 +48,7 @@
     const cleaned = sanitizer(extraction.contentNode || document.body);
     removeDuplicateTitleAndByline(cleaned, title, byline, site);
     pruneEmptyBlocks(cleaned);
-    const contentHtml = cleaned.innerHTML.trim();
+    const contentHtml = formatParagraphBreaks(cleaned.innerHTML.trim());
     const contentText = normalizeWhitespace(cleaned.textContent || "");
 
     return {

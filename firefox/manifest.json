@@ -38,11 +38,12 @@
         {
             "matches": ["<all_urls>"],
             "js": [
-                "parsers/utils.js",
-                "parsers/registry.js",
-                "parsers/wikipedia.js",
-                "parsers/guardian.js",
-                "parsers/psyche.js",
+            "parsers/utils.js",
+            "parsers/registry.js",
+            "parsers/archive.js",
+            "parsers/wikipedia.js",
+            "parsers/guardian.js",
+            "parsers/psyche.js",
                 "parsers/nature.js",
                 "content.js"
             ],
