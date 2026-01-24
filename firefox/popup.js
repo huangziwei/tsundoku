@@ -3,6 +3,7 @@ const api = getBrowser();
 const statusEl = document.getElementById("status");
 const countEl = document.getElementById("queue-count");
 const listEl = document.getElementById("queue-list");
+const versionEl = document.getElementById("app-version");
 const saveButton = document.getElementById("save-page");
 const exportAllButton = document.getElementById("export-all");
 const sendPttsButton = document.getElementById("send-ptts");
@@ -805,6 +806,34 @@ function setStatus(text) {
   statusEl.textContent = text;
 }
 
+function isLocalTestingBuild(manifest) {
+  if (!manifest) {
+    return false;
+  }
+  const geckoId =
+    manifest.browser_specific_settings?.gecko?.id ||
+    manifest.applications?.gecko?.id ||
+    "";
+  const runtimeId = api.runtime?.id || "";
+  const id = geckoId || runtimeId;
+  return typeof id === "string" && /@local$/i.test(id);
+}
+
+function setVersionLabel() {
+  if (!versionEl) {
+    return;
+  }
+  const manifest = api.runtime?.getManifest ? api.runtime.getManifest() : null;
+  const version = manifest?.version;
+  if (!version) {
+    versionEl.hidden = true;
+    return;
+  }
+  const suffix = isLocalTestingBuild(manifest) ? ".dev" : "";
+  versionEl.textContent = `v${version}${suffix}`;
+  versionEl.hidden = false;
+}
+
 function setBusy(value) {
   isBusy = value;
   syncControls();
@@ -922,6 +951,7 @@ async function init() {
   setStatus("Loading...");
   setBusy(true);
   try {
+    setVersionLabel();
     await loadPttsSettings();
     await loadQueues({ initial: true });
     await loadItems({ quiet: true });
