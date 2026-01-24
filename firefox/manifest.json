@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "Tsundoku",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "description": "Save articles and export them as a single EPUB.",
     "browser_specific_settings": {
         "gecko": {
@@ -38,12 +38,12 @@
         {
             "matches": ["<all_urls>"],
             "js": [
-            "parsers/utils.js",
-            "parsers/registry.js",
-            "parsers/archive.js",
-            "parsers/wikipedia.js",
-            "parsers/guardian.js",
-            "parsers/psyche.js",
+                "parsers/utils.js",
+                "parsers/registry.js",
+                "parsers/archive.js",
+                "parsers/wikipedia.js",
+                "parsers/guardian.js",
+                "parsers/psyche.js",
                 "parsers/nature.js",
                 "content.js"
             ],

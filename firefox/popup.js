@@ -5,6 +5,7 @@ const countEl = document.getElementById("queue-count");
 const listEl = document.getElementById("queue-list");
 const saveButton = document.getElementById("save-page");
 const exportAllButton = document.getElementById("export-all");
+const sendPttsButton = document.getElementById("send-ptts");
 const deleteAllButton = document.getElementById("delete-all");
 const queueSelect = document.getElementById("queue-select");
 const renameQueueButton = document.getElementById("rename-queue");
@@ -12,6 +13,9 @@ const newQueueButton = document.getElementById("new-queue");
 const openRssButton = document.getElementById("open-rss");
 const syncRssButton = document.getElementById("sync-rss");
 const toolbarEl = document.getElementById("queue-toolbar");
+const pttsUrlInput = document.getElementById("ptts-url");
+const pttsUrlLabel = document.getElementById("ptts-url-label");
+const pttsUrlRow = document.getElementById("ptts-url-row");
 
 let items = [];
 let queues = [];
@@ -19,6 +23,8 @@ let activeQueueId = "";
 let rssQueueId = "";
 let isBusy = false;
 const STORAGE_ACTIVE_QUEUE_KEY = "activeQueueId";
+const STORAGE_PTTS_URL_KEY = "pttsUrl";
+const DEFAULT_PTTS_URL = "http://localhost:1912";
 
 saveButton.addEventListener("click", async () => {
   setStatus("Saving...");
@@ -68,6 +74,58 @@ exportAllButton.addEventListener("click", async () => {
   }
 });
 
+sendPttsButton.addEventListener("click", async () => {
+  setStatus("Sending to pTTS...");
+  setBusy(true);
+
+  try {
+    await ensureActiveQueue();
+    const queueName = getActiveQueueName();
+    const pttsUrl = getPttsUrlValue();
+    await savePttsUrl(pttsUrl);
+    let response = await api.runtime.sendMessage({
+      type: "queue/export-ptts",
+      queueId: activeQueueId,
+      title: queueName || "To Be Read",
+      pttsUrl
+    });
+
+    if (!response?.ok && response?.status === 409) {
+      const bookId = response.bookId || "";
+      const label = bookId ? `"${bookId}"` : "this book";
+      const confirmed = window.confirm(
+        `Book ${label} already exists in pTTS. Overwrite it? This will delete the existing book.`
+      );
+      if (confirmed) {
+        response = await api.runtime.sendMessage({
+          type: "queue/export-ptts",
+          queueId: activeQueueId,
+          title: queueName || "To Be Read",
+          pttsUrl,
+          override: true
+        });
+      } else {
+        setStatus("Send canceled");
+        return;
+      }
+    }
+
+    if (!response?.ok) {
+      throw new Error(response?.error || "Send failed");
+    }
+
+    await loadItems({ quiet: true });
+    const label = response.title || response.bookId || response.filename || "EPUB";
+    setStatus(`Sent ${label} to pTTS and cleared the queue`);
+    hidePttsSettings();
+  } catch (error) {
+    showPttsSettings();
+    setStatus(error.message || "Send failed");
+  } finally {
+    setBusy(false);
+  }
+});
+
 deleteAllButton.addEventListener("click", async () => {
   if (!items.length) {
     return;
@@ -106,6 +164,13 @@ deleteAllButton.addEventListener("click", async () => {
 queueSelect.addEventListener("change", () => {
   switchQueue(queueSelect.value);
 });
+
+if (pttsUrlInput) {
+  pttsUrlInput.addEventListener("change", async () => {
+    const value = getPttsUrlValue();
+    await savePttsUrl(value);
+  });
+}
 
 renameQueueButton.addEventListener("click", async () => {
   const queue = getActiveQueue();
@@ -327,6 +392,60 @@ async function readActiveQueue() {
   }
   const stored = await api.storage.local.get(STORAGE_ACTIVE_QUEUE_KEY);
   return stored?.[STORAGE_ACTIVE_QUEUE_KEY] || "";
+}
+
+async function savePttsUrl(value) {
+  if (!api.storage?.local) {
+    return;
+  }
+  await api.storage.local.set({ [STORAGE_PTTS_URL_KEY]: value });
+}
+
+async function readPttsUrl() {
+  if (!api.storage?.local) {
+    return "";
+  }
+  const stored = await api.storage.local.get(STORAGE_PTTS_URL_KEY);
+  return stored?.[STORAGE_PTTS_URL_KEY] || "";
+}
+
+async function loadPttsSettings() {
+  if (!pttsUrlInput) {
+    return;
+  }
+  const stored = await readPttsUrl();
+  const value = stored.trim() || DEFAULT_PTTS_URL;
+  pttsUrlInput.value = value;
+}
+
+function showPttsSettings() {
+  if (pttsUrlLabel) {
+    pttsUrlLabel.hidden = false;
+  }
+  if (pttsUrlRow) {
+    pttsUrlRow.hidden = false;
+  }
+}
+
+function hidePttsSettings() {
+  if (pttsUrlLabel) {
+    pttsUrlLabel.hidden = true;
+  }
+  if (pttsUrlRow) {
+    pttsUrlRow.hidden = true;
+  }
+}
+
+function getPttsUrlValue() {
+  if (!pttsUrlInput) {
+    return DEFAULT_PTTS_URL;
+  }
+  const value = pttsUrlInput.value.trim();
+  if (!value) {
+    pttsUrlInput.value = DEFAULT_PTTS_URL;
+    return DEFAULT_PTTS_URL;
+  }
+  return value;
 }
 
 async function ensureActiveQueue() {
@@ -694,12 +813,18 @@ function setBusy(value) {
 function syncControls() {
   saveButton.disabled = isBusy;
   exportAllButton.disabled = isBusy || items.length === 0;
+  if (sendPttsButton) {
+    sendPttsButton.disabled = isBusy || items.length === 0;
+  }
   deleteAllButton.disabled = isBusy || items.length === 0;
   queueSelect.disabled = isBusy || queues.length === 0;
   renameQueueButton.disabled = isBusy || queues.length === 0;
   newQueueButton.disabled = isBusy;
   openRssButton.disabled = isBusy;
   syncRssButton.disabled = isBusy;
+  if (pttsUrlInput) {
+    pttsUrlInput.disabled = isBusy;
+  }
   updateQueueActions();
 }
 
@@ -722,8 +847,22 @@ function updateQueueActions() {
   }
 
   const order = isRss
-    ? [syncRssButton, openRssButton, exportAllButton, deleteAllButton, saveButton]
-    : [saveButton, exportAllButton, deleteAllButton, syncRssButton, openRssButton];
+    ? [
+        syncRssButton,
+        openRssButton,
+        exportAllButton,
+        sendPttsButton,
+        deleteAllButton,
+        saveButton
+      ]
+    : [
+        saveButton,
+        sendPttsButton,
+        exportAllButton,
+        deleteAllButton,
+        syncRssButton,
+        openRssButton
+      ];
 
   order.forEach((button) => {
     if (button && button.parentElement === toolbarEl) {
@@ -783,6 +922,7 @@ async function init() {
   setStatus("Loading...");
   setBusy(true);
   try {
+    await loadPttsSettings();
     await loadQueues({ initial: true });
     await loadItems({ quiet: true });
     setStatus("Ready");

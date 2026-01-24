@@ -76,6 +76,8 @@ async function handleMessage(message) {
       return updateQueueItem(message);
     case "queue/export":
       return exportQueue(message);
+    case "queue/export-ptts":
+      return exportQueueToPtts(message);
     case "queues/list":
       return listQueuesMessage();
     case "queues/create":
@@ -267,6 +269,59 @@ async function exportQueue({ queueId, title = "To Be Read" } = {}) {
   return { ok: true, filename, count };
 }
 
+async function exportQueueToPtts({
+  queueId,
+  title = "To Be Read",
+  pttsUrl,
+  override = false
+} = {}) {
+  const resolvedQueueId = await resolveQueueId(queueId);
+  const selected = await listItems(resolvedQueueId);
+
+  if (!selected.length) {
+    return { ok: false, error: "No items to export" };
+  }
+
+  const safeTitle = title.trim() || "To Be Read";
+  const fileBase = slugify(safeTitle) || "to-be-read";
+  const dateStamp = new Date().toISOString().slice(0, 10);
+  const filename = `${fileBase}-${dateStamp}.epub`;
+
+  const buffer = await buildEpub(selected, {
+    title: safeTitle,
+    creator: "Tsundoku",
+    exportedAt: dateStamp
+  });
+
+  const upload = await uploadEpubToPtts({
+    buffer,
+    filename,
+    pttsUrl,
+    override: override === true
+  });
+
+  if (!upload.ok) {
+    return {
+      ok: false,
+      error: upload.error,
+      status: upload.status,
+      bookId: upload.bookId,
+      pttsUrl: upload.pttsUrl
+    };
+  }
+
+  await deleteItemsByQueue(resolvedQueueId);
+  const count = await countItems(resolvedQueueId);
+
+  return {
+    ok: true,
+    filename,
+    count,
+    bookId: upload.bookId,
+    title: upload.title
+  };
+}
+
 async function listQueuesMessage() {
   const queues = await listQueues();
   const defaultQueue = await ensureDefaultQueue();
@@ -412,6 +467,76 @@ async function resolveQueueId(queueId) {
   }
   const fallback = await ensureDefaultQueue();
   return fallback?.id || DEFAULT_QUEUE_ID;
+}
+
+async function uploadEpubToPtts({
+  buffer,
+  filename,
+  pttsUrl,
+  override = false
+} = {}) {
+  const normalized = normalizePttsUrl(pttsUrl);
+  if (!normalized) {
+    return { ok: false, error: "pTTS URL is missing or invalid." };
+  }
+
+  const endpoint = `${normalized}/api/ingest${override ? "?override=1" : ""}`;
+  const body = new FormData();
+  const blob = new Blob([buffer], { type: "application/epub+zip" });
+  body.append("file", blob, filename);
+
+  let response;
+  try {
+    response = await fetch(endpoint, { method: "POST", body });
+  } catch (error) {
+    return {
+      ok: false,
+      error: `pTTS is not running at ${normalized}.`,
+      status: 0,
+      pttsUrl: normalized
+    };
+  }
+
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (error) {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const detail = payload?.detail || response.statusText || "Failed to ingest.";
+    return {
+      ok: false,
+      error: detail,
+      status: response.status,
+      bookId: payload?.book_id,
+      pttsUrl: normalized
+    };
+  }
+
+  return {
+    ok: true,
+    bookId: payload?.book_id,
+    title: payload?.title,
+    pttsUrl: normalized
+  };
+}
+
+function normalizePttsUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw)
+    ? raw
+    : `http://${raw}`;
+  try {
+    const url = new URL(withScheme);
+    return url.origin;
+  } catch (error) {
+    return "";
+  }
 }
 
 async function downloadArrayBuffer(buffer, filename) {

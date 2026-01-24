@@ -4,10 +4,11 @@
 >
 > 積読は、入手した書籍を読むことなく自宅で積んだままにしている状態を意味する言葉である [^2]
 
-Save articles from your browser and export them as a single EPUB for offline reading or [listening](https://github.com/huangziwei/ptts), or not.
+Save articles from your browser and export them as a single EPUB for offline reading or [listening](https://github.com/huangziwei/ptts)[^3], or not.
 
 [^1]: https://en.wikipedia.org/wiki/Tsundoku
 [^2]: https://ja.wikipedia.org/wiki/積読
+[^3]: From v0.1.4, you can send EPUB from Tsundoku to pTTS directly within Firefox.
 
 ## Firefox 
 1. Open `about:debugging#/runtime/this-firefox`.
