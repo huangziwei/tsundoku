@@ -5,7 +5,7 @@
     "description": "Save articles and export them as a single EPUB.",
     "browser_specific_settings": {
         "gecko": {
-            "id": "tsundoku@hzwei.dev",
+            "id": "tsundoku@local",
             "data_collection_permissions": {
                 "required": ["none"],
                 "optional": []
