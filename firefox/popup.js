@@ -380,6 +380,10 @@ function getActiveQueueLabel(fallback = "queue") {
   return getActiveQueueName() || fallback;
 }
 
+function getQueueLabel(queue, fallback = "queue") {
+  return queue?.name || queue?.id || fallback;
+}
+
 async function saveActiveQueue(queueId) {
   if (!api.storage?.local) {
     return;
@@ -542,6 +546,12 @@ function buildItemRow(item, index) {
     onClick: () => moveItem(index, 1)
   });
 
+  const moveButton = createIconButton({
+    label: "Move to queue",
+    path: "M13 5l7 7-7 7v-4H4v-6h9V5z",
+    onClick: () => moveItemToQueue(item)
+  });
+
   const deleteButton = createIconButton({
     label: "Delete",
     path:
@@ -553,6 +563,7 @@ function buildItemRow(item, index) {
   actions.appendChild(openButton);
   actions.appendChild(upButton);
   actions.appendChild(downButton);
+  actions.appendChild(moveButton);
   actions.appendChild(deleteButton);
 
   row.appendChild(content);
@@ -912,6 +923,71 @@ function setPrimaryButton(button, isPrimary) {
     if (!button.classList.contains("secondary") && !button.classList.contains("ghost")) {
       button.classList.add("secondary");
     }
+  }
+}
+
+async function moveItemToQueue(item) {
+  if (!item?.id) {
+    setStatus("Missing item id");
+    return;
+  }
+  const candidates = queues.filter((queue) => queue.id !== activeQueueId);
+  if (!candidates.length) {
+    setStatus("Create another queue first");
+    return;
+  }
+  const choices = candidates
+    .map((queue, index) => `${index + 1}. ${getQueueLabel(queue, "Untitled")}`)
+    .join("\n");
+  const suggestion = getQueueLabel(candidates[0], "").trim();
+  const response = window.prompt(
+    `Move to which queue?\n${choices}`,
+    suggestion
+  );
+  if (response === null) {
+    return;
+  }
+  const trimmed = response.trim();
+  if (!trimmed) {
+    setStatus("Queue name is required");
+    return;
+  }
+
+  const normalized = trimmed.toLowerCase();
+  let targetQueue =
+    candidates.find(
+      (queue) => String(queue.name || "").toLowerCase() === normalized
+    ) || candidates.find((queue) => queue.id === trimmed);
+
+  if (!targetQueue && /^\d+$/.test(trimmed)) {
+    const index = Number.parseInt(trimmed, 10);
+    if (index >= 1 && index <= candidates.length) {
+      targetQueue = candidates[index - 1];
+    }
+  }
+
+  if (!targetQueue) {
+    setStatus("Queue not found");
+    return;
+  }
+
+  setStatus(`Moving to ${getQueueLabel(targetQueue)}...`);
+  setBusy(true);
+  try {
+    const response = await api.runtime.sendMessage({
+      type: "queue/move",
+      id: item.id,
+      queueId: targetQueue.id
+    });
+    if (!response?.ok) {
+      throw new Error(response?.error || "Unable to move item");
+    }
+    await loadItems({ quiet: true });
+    setStatus(`Moved to ${getQueueLabel(targetQueue)}`);
+  } catch (error) {
+    setStatus(error.message || "Unable to move item");
+  } finally {
+    setBusy(false);
   }
 }
 

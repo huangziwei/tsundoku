@@ -74,6 +74,8 @@ async function handleMessage(message) {
       return getQueueItem(message.id);
     case "queue/update-item":
       return updateQueueItem(message);
+    case "queue/move":
+      return moveQueueItem(message.id, message.queueId);
     case "queue/export":
       return exportQueue(message);
     case "queue/export-ptts":
@@ -239,6 +241,30 @@ async function updateQueueItem({ id, content_html, content_text } = {}) {
     content_text: nextText,
     excerpt: makeExcerpt(nextText),
     word_count: wordCount(nextText)
+  };
+  await addItem(updated);
+  return { ok: true, item: updated };
+}
+
+async function moveQueueItem(id, queueId) {
+  if (!id) {
+    return { ok: false, error: "Missing item id" };
+  }
+  if (!queueId) {
+    return { ok: false, error: "Missing queue id" };
+  }
+  const [item] = await getItemsByIds([id]);
+  if (!item) {
+    return { ok: false, error: "Item not found" };
+  }
+  const queue = await getQueue(queueId);
+  if (!queue) {
+    return { ok: false, error: "Queue not found" };
+  }
+  const updated = {
+    ...item,
+    queue_id: queue.id,
+    order: Date.now()
   };
   await addItem(updated);
   return { ok: true, item: updated };
