@@ -23,6 +23,7 @@ let queues = [];
 let activeQueueId = "";
 let rssQueueId = "";
 let isBusy = false;
+let statusSticky = false;
 const STORAGE_ACTIVE_QUEUE_KEY = "activeQueueId";
 const STORAGE_PTTS_URL_KEY = "pttsUrl";
 const DEFAULT_PTTS_URL = "http://localhost:1912";
@@ -117,7 +118,7 @@ sendPttsButton.addEventListener("click", async () => {
 
     await loadItems({ quiet: true });
     const label = response.title || response.bookId || response.filename || "EPUB";
-    setStatus(`Sent ${label} to pTTS and cleared the queue`);
+    setStatus(`Sent ${label} to pTTS`, { sticky: true });
     hidePttsSettings();
   } catch (error) {
     showPttsSettings();
@@ -286,7 +287,7 @@ async function loadItems({ quiet = false } = {}) {
     renderList();
     updateCount();
     if (!quiet) {
-      setStatus("Ready");
+      setReadyStatus();
     }
   } catch (error) {
     if (!quiet) {
@@ -359,7 +360,7 @@ async function switchQueue(queueId) {
   setBusy(true);
   try {
     await setActiveQueue(queueId);
-    setStatus("Ready");
+    setReadyStatus();
   } catch (error) {
     setStatus(error.message || "Unable to load queue");
   } finally {
@@ -813,8 +814,16 @@ function updateCount() {
   syncControls();
 }
 
-function setStatus(text) {
+function setStatus(text, { sticky = false } = {}) {
   statusEl.textContent = text;
+  statusSticky = sticky;
+}
+
+function setReadyStatus() {
+  if (statusSticky) {
+    return;
+  }
+  setStatus("Ready");
 }
 
 function isLocalTestingBuild(manifest) {
@@ -1015,7 +1024,7 @@ async function persistOrder(orderedIds) {
       throw new Error(response?.error || "Unable to reorder");
     }
     await loadItems({ quiet: true });
-    setStatus("Ready");
+    setReadyStatus();
   } catch (error) {
     setStatus(error.message || "Unable to reorder");
   } finally {
@@ -1031,7 +1040,7 @@ async function init() {
     await loadPttsSettings();
     await loadQueues({ initial: true });
     await loadItems({ quiet: true });
-    setStatus("Ready");
+    setReadyStatus();
   } catch (error) {
     setStatus(error.message || "Unable to load queues");
   } finally {
