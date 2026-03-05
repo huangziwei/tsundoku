@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "Tsundoku",
-    "version": "0.1.6",
+    "version": "0.1.7",
     "description": "Save articles and export them as a single EPUB.",
     "browser_specific_settings": {
         "gecko": {
@@ -22,10 +22,10 @@
     "browser_action": {
         "default_title": "Tsundoku",
         "default_icon": {
-            "16": "icons/icon-16.png",
-            "32": "icons/icon-32.png",
-            "48": "icons/icon-48.png",
-            "96": "icons/icon-96.png"
+            "16": "icons/toolbar-16.png",
+            "32": "icons/toolbar-32.png",
+            "48": "icons/toolbar-48.png",
+            "96": "icons/toolbar-128.png"
         },
         "default_popup": "popup.html"
     },

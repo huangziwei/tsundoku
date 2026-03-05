@@ -15,20 +15,18 @@ Save articles from your browser and export them as a single EPUB for offline rea
 2. Click "Load Temporary Add-on".
 3. Select `firefox/manifest.json`.
 
-## Safari 
-Safari Web Extensions must be bundled inside a macOS wrapper app. For personal use, build and run the wrapper app once, then enable the extension in Safari.
+## Safari
+Safari Web Extensions must be bundled inside a macOS wrapper app. Xcode is required but you don’t need to open the GUI.
 
-1. Convert the Firefox extension with `xcrun`
-   ```bash
-   xcrun safari-web-extension-converter ./firefox \
-     --project-location ./safari \
-     --bundle-identifier com.yourname.tsundoku \
-     --app-name Tsundoku
-   ```
-2. Open the generated Xcode project at `safari/Tsundoku/Tsundoku.xcodeproj`.
-3. Build and run the app once (Product → Run) to register the extension.
-4. Enable it in Safari → Settings → Extensions.
-   - If it doesn’t appear, enable Develop → “Allow Unsigned Extensions”.
+```bash
+xcrun safari-web-extension-converter ./firefox --project-location ./safari --app-name Tsundoku --bundle-identifier com.yourname.Tsundoku --no-open --no-prompt --macos-only
+xcodebuild -project safari/Tsundoku/Tsundoku.xcodeproj -scheme Tsundoku -configuration Release -derivedDataPath safari/build build
+open safari/build/Build/Products/Release/Tsundoku.app
+```
+
+Then enable the extension in Safari → Settings → Extensions.
+
+> **Note:** You must enable Develop → “Allow Unsigned Extensions” every time Safari is relaunched.
 
 ## Usage
 - Use the popup to save the current page into the selected queue.
