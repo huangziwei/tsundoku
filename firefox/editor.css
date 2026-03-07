@@ -4,12 +4,15 @@
 
 body {
   min-width: 0;
+  overflow: hidden;
 }
 
 main.editor {
   padding: 24px;
   max-width: 980px;
   margin: 0 auto;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .editor-header {

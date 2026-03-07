@@ -25,11 +25,17 @@ body {
   color: var(--ink);
   background: linear-gradient(120deg, #f7f4ef 0%, #f0eee8 60%, #f9f2e8 100%);
   min-width: 360px;
+}
+
+body:has(main:not(.editor)) {
   overflow: hidden;
 }
 
 main {
   padding: 16px;
+}
+
+main:not(.editor) {
   max-height: 600px;
   overflow-y: auto;
 }
