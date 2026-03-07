@@ -508,22 +508,12 @@ function buildItemRow(item, index) {
   const actions = document.createElement("div");
   actions.className = "item-actions";
 
-  const preview = document.createElement("div");
-  preview.className = "preview";
-  preview.hidden = true;
-
   const previewButton = document.createElement("button");
   previewButton.className = "secondary";
   previewButton.textContent = "Preview";
 
   previewButton.addEventListener("click", () => {
-    if (!preview.dataset.loaded) {
-      preview.appendChild(buildPreviewContent(item));
-      preview.dataset.loaded = "true";
-    }
-    const willShow = preview.hidden;
-    preview.hidden = !willShow;
-    previewButton.textContent = willShow ? "Hide" : "Preview";
+    openEditor(item);
   });
 
   const openButton = document.createElement("button");
@@ -569,7 +559,6 @@ function buildItemRow(item, index) {
 
   row.appendChild(content);
   row.appendChild(actions);
-  row.appendChild(preview);
 
   return row;
 }
@@ -598,106 +587,6 @@ function createIconButton({ label, path, onClick, disabled = false }) {
   return button;
 }
 
-function buildPreviewContent(item) {
-  const wrapper = document.createElement("div");
-  wrapper.className = "preview-wrapper";
-
-  const topControls = createPreviewControls("top");
-  const bottomControls = createPreviewControls("bottom");
-
-  const article = document.createElement("article");
-
-  const title = document.createElement("h1");
-  const titleText = item.title || "Untitled";
-  if (item.url) {
-    const link = document.createElement("a");
-    link.href = item.url;
-    link.textContent = titleText;
-    title.appendChild(link);
-  } else {
-    title.textContent = titleText;
-  }
-  article.appendChild(title);
-
-  if (item.tagline) {
-    const tagline = document.createElement("p");
-    tagline.className = "tagline";
-    tagline.textContent = item.tagline;
-    article.appendChild(tagline);
-  }
-
-  if (!item.tagline) {
-    const bylineText = formatByline(item.byline);
-    if (bylineText) {
-      const byline = document.createElement("p");
-      byline.className = "byline";
-      byline.textContent = bylineText;
-      article.appendChild(byline);
-    }
-
-    const published = formatDateTimeSafe(item.published_at);
-    if (published) {
-      const publishedEl = document.createElement("p");
-      publishedEl.className = "meta";
-      publishedEl.textContent = `Published at ${published}`;
-      article.appendChild(publishedEl);
-    }
-
-    const edited = formatDateTimeSafe(item.modified_at);
-    if (edited && edited !== published) {
-      const editedEl = document.createElement("p");
-      editedEl.className = "meta";
-      editedEl.textContent = `Edited at ${edited}`;
-      article.appendChild(editedEl);
-    }
-  }
-
-  const content = document.createElement("div");
-  content.className = "preview-body";
-  const html = item.content_html || "";
-  if (html.trim()) {
-    appendHtmlSafely(content, html);
-  } else if (item.content_text) {
-    const paragraph = document.createElement("p");
-    paragraph.textContent = item.content_text;
-    content.appendChild(paragraph);
-  } else {
-    const paragraph = document.createElement("p");
-    paragraph.textContent = "No content available.";
-    content.appendChild(paragraph);
-  }
-  article.appendChild(content);
-
-  wrapper.appendChild(topControls.controls);
-  wrapper.appendChild(article);
-  wrapper.appendChild(bottomControls.controls);
-
-  const editButtons = [topControls.editButton, bottomControls.editButton];
-  editButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      openEditor(item);
-    });
-  });
-
-  function createPreviewControls(position) {
-    const controls = document.createElement("div");
-    controls.className = "preview-controls";
-    if (position) {
-      controls.classList.add(position);
-    }
-
-    const editButton = document.createElement("button");
-    editButton.className = "secondary";
-    editButton.textContent = "Edit";
-
-    controls.appendChild(editButton);
-
-    return { controls, editButton };
-  }
-
-  return wrapper;
-}
-
 function openEditor(item) {
   if (!item?.id) {
     setStatus("Missing item id");
@@ -707,67 +596,6 @@ function openEditor(item) {
     `editor.html?id=${encodeURIComponent(item.id)}`
   );
   api.tabs.create({ url });
-}
-
-function appendHtmlSafely(container, html) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
-  const body = doc.body;
-  sanitizePreviewNodes(body);
-  const fragment = document.createDocumentFragment();
-  while (body.firstChild) {
-    fragment.appendChild(body.firstChild);
-  }
-  container.appendChild(fragment);
-}
-
-function sanitizePreviewNodes(rootNode) {
-  if (!rootNode) {
-    return;
-  }
-  const blocked = [
-    "script",
-    "style",
-    "noscript",
-    "iframe",
-    "form",
-    "button",
-    "input",
-    "textarea",
-    "select"
-  ];
-  rootNode.querySelectorAll(blocked.join(", ")).forEach((el) => el.remove());
-  rootNode.querySelectorAll("*").forEach((el) => {
-    Array.from(el.attributes).forEach((attr) => {
-      const name = attr.name.toLowerCase();
-      if (name.startsWith("on") || name === "style") {
-        el.removeAttribute(attr.name);
-      }
-      if ((name === "href" || name === "src") && /^javascript:/i.test(attr.value)) {
-        el.removeAttribute(attr.name);
-      }
-    });
-  });
-}
-
-function formatByline(value) {
-  if (!value) {
-    return "";
-  }
-  const cleaned = String(value).trim().replace(/^by\s+/i, "");
-  return cleaned ? `By ${cleaned}` : "";
-}
-
-function formatDateTimeSafe(value) {
-  if (!value) {
-    return "";
-  }
-  const formatted =
-    typeof formatDateTime === "function" ? formatDateTime(value) : "";
-  if (formatted) {
-    return formatted;
-  }
-  return String(value).trim();
 }
 
 function buildMeta(item) {

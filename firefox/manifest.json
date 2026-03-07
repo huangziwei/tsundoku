@@ -45,6 +45,7 @@
                 "parsers/guardian.js",
                 "parsers/psyche.js",
                 "parsers/nature.js",
+                "parsers/paulgraham.js",
                 "content.js"
             ],
             "run_at": "document_idle"
