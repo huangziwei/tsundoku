@@ -48,17 +48,15 @@
   }
 
   function buildContentNode() {
-    const articleBody = document.querySelector(".article-content");
-    if (!articleBody) {
+    const sections = document.querySelectorAll(".article-content");
+    if (!sections.length) {
       return document.querySelector("main") || document.body;
     }
 
     const wrapper = document.createElement("div");
-    const deck = articleBody.previousElementSibling;
-    if (deck && /^h[2-6]$/i.test(deck.tagName)) {
-      wrapper.appendChild(deck.cloneNode(true));
-    }
-    wrapper.appendChild(articleBody.cloneNode(true));
+    sections.forEach((section) => {
+      wrapper.appendChild(section.cloneNode(true));
+    });
     return wrapper;
   }
 
@@ -98,7 +96,7 @@
 
   function cleanPsycheTitle(title) {
     let result = normalizeWhitespace(title || "");
-    ["Psyche Ideas", "Psyche"].forEach((suffix) => {
+    ["Psyche Guides", "Psyche Ideas", "Psyche"].forEach((suffix) => {
       const stripped = stripTitleSuffix(result, suffix);
       if (stripped) {
         result = stripped;
@@ -128,7 +126,7 @@
     const rootNode = sanitizeContent(node);
     rootNode
       .querySelectorAll(
-        "aside, nav, footer, header, .pullquote, .print\\:hidden, [data-print-layout='hide']"
+        "aside, nav, footer, header, .pullquote, .print\\:hidden, [data-print-layout='hide'], button, svg"
       )
       .forEach((el) => el.remove());
     pruneEmptyBlocks(rootNode);
