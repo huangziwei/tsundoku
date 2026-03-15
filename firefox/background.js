@@ -78,8 +78,8 @@ async function handleMessage(message) {
       return moveQueueItem(message.id, message.queueId);
     case "queue/export":
       return exportQueue(message);
-    case "queue/export-ptts":
-      return exportQueueToPtts(message);
+    case "queue/export-neb":
+      return exportQueueToNeb(message);
     case "queues/list":
       return listQueuesMessage();
     case "queues/create":
@@ -295,10 +295,10 @@ async function exportQueue({ queueId, title = "To Be Read" } = {}) {
   return { ok: true, filename, count };
 }
 
-async function exportQueueToPtts({
+async function exportQueueToNeb({
   queueId,
   title = "To Be Read",
-  pttsUrl,
+  nebUrl,
   override = false
 } = {}) {
   const resolvedQueueId = await resolveQueueId(queueId);
@@ -319,10 +319,10 @@ async function exportQueueToPtts({
     exportedAt: dateStamp
   });
 
-  const upload = await uploadEpubToPtts({
+  const upload = await uploadEpubToNeb({
     buffer,
     filename,
-    pttsUrl,
+    nebUrl,
     override: override === true
   });
 
@@ -332,7 +332,7 @@ async function exportQueueToPtts({
       error: upload.error,
       status: upload.status,
       bookId: upload.bookId,
-      pttsUrl: upload.pttsUrl
+      nebUrl: upload.nebUrl
     };
   }
 
@@ -495,15 +495,15 @@ async function resolveQueueId(queueId) {
   return fallback?.id || DEFAULT_QUEUE_ID;
 }
 
-async function uploadEpubToPtts({
+async function uploadEpubToNeb({
   buffer,
   filename,
-  pttsUrl,
+  nebUrl,
   override = false
 } = {}) {
-  const normalized = normalizePttsUrl(pttsUrl);
+  const normalized = normalizeNebUrl(nebUrl);
   if (!normalized) {
-    return { ok: false, error: "pTTS URL is missing or invalid." };
+    return { ok: false, error: "Neb URL is missing or invalid." };
   }
 
   const endpoint = `${normalized}/api/ingest${override ? "?override=1" : ""}`;
@@ -517,9 +517,9 @@ async function uploadEpubToPtts({
   } catch (error) {
     return {
       ok: false,
-      error: `pTTS is not running at ${normalized}.`,
+      error: `Neb is not running at ${normalized}.`,
       status: 0,
-      pttsUrl: normalized
+      nebUrl: normalized
     };
   }
 
@@ -537,7 +537,7 @@ async function uploadEpubToPtts({
       error: detail,
       status: response.status,
       bookId: payload?.book_id,
-      pttsUrl: normalized
+      nebUrl: normalized
     };
   }
 
@@ -545,11 +545,11 @@ async function uploadEpubToPtts({
     ok: true,
     bookId: payload?.book_id,
     title: payload?.title,
-    pttsUrl: normalized
+    nebUrl: normalized
   };
 }
 
-function normalizePttsUrl(value) {
+function normalizeNebUrl(value) {
   const raw = String(value || "").trim();
   if (!raw) {
     return "";

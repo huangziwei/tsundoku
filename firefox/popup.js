@@ -6,7 +6,7 @@ const listEl = document.getElementById("queue-list");
 const versionEl = document.getElementById("app-version");
 const saveButton = document.getElementById("save-page");
 const exportAllButton = document.getElementById("export-all");
-const sendPttsButton = document.getElementById("send-ptts");
+const sendNebButton = document.getElementById("send-neb");
 const deleteAllButton = document.getElementById("delete-all");
 const queueSelect = document.getElementById("queue-select");
 const renameQueueButton = document.getElementById("rename-queue");
@@ -14,9 +14,9 @@ const newQueueButton = document.getElementById("new-queue");
 const openRssButton = document.getElementById("open-rss");
 const syncRssButton = document.getElementById("sync-rss");
 const toolbarEl = document.getElementById("queue-toolbar");
-const pttsUrlInput = document.getElementById("ptts-url");
-const pttsUrlLabel = document.getElementById("ptts-url-label");
-const pttsUrlRow = document.getElementById("ptts-url-row");
+const nebUrlInput = document.getElementById("neb-url");
+const nebUrlLabel = document.getElementById("neb-url-label");
+const nebUrlRow = document.getElementById("neb-url-row");
 
 let items = [];
 let queues = [];
@@ -25,8 +25,8 @@ let rssQueueId = "";
 let isBusy = false;
 let statusSticky = false;
 const STORAGE_ACTIVE_QUEUE_KEY = "activeQueueId";
-const STORAGE_PTTS_URL_KEY = "pttsUrl";
-const DEFAULT_PTTS_URL = "http://localhost:1912";
+const STORAGE_NEB_URL_KEY = "nebUrl";
+const DEFAULT_NEB_URL = "http://localhost:1912";
 
 saveButton.addEventListener("click", async () => {
   setStatus("Saving...");
@@ -76,34 +76,34 @@ exportAllButton.addEventListener("click", async () => {
   }
 });
 
-sendPttsButton.addEventListener("click", async () => {
-  setStatus("Sending to pTTS...");
+sendNebButton.addEventListener("click", async () => {
+  setStatus("Sending to Neb...");
   setBusy(true);
 
   try {
     await ensureActiveQueue();
     const queueName = getActiveQueueName();
-    const pttsUrl = getPttsUrlValue();
-    await savePttsUrl(pttsUrl);
+    const nebUrl = getNebUrlValue();
+    await saveNebUrl(nebUrl);
     let response = await api.runtime.sendMessage({
-      type: "queue/export-ptts",
+      type: "queue/export-neb",
       queueId: activeQueueId,
       title: queueName || "To Be Read",
-      pttsUrl
+      nebUrl
     });
 
     if (!response?.ok && response?.status === 409) {
       const bookId = response.bookId || "";
       const label = bookId ? `"${bookId}"` : "this book";
       const confirmed = window.confirm(
-        `Book ${label} already exists in pTTS. Overwrite it? This will delete the existing book.`
+        `Book ${label} already exists in Neb. Overwrite it? This will delete the existing book.`
       );
       if (confirmed) {
         response = await api.runtime.sendMessage({
-          type: "queue/export-ptts",
+          type: "queue/export-neb",
           queueId: activeQueueId,
           title: queueName || "To Be Read",
-          pttsUrl,
+          nebUrl,
           override: true
         });
       } else {
@@ -118,10 +118,10 @@ sendPttsButton.addEventListener("click", async () => {
 
     await loadItems({ quiet: true });
     const label = response.title || response.bookId || response.filename || "EPUB";
-    setStatus(`Sent ${label} to pTTS`, { sticky: true });
-    hidePttsSettings();
+    setStatus(`Sent ${label} to Neb`, { sticky: true });
+    hideNebSettings();
   } catch (error) {
-    showPttsSettings();
+    showNebSettings();
     setStatus(error.message || "Send failed");
   } finally {
     setBusy(false);
@@ -167,10 +167,10 @@ queueSelect.addEventListener("change", () => {
   switchQueue(queueSelect.value);
 });
 
-if (pttsUrlInput) {
-  pttsUrlInput.addEventListener("change", async () => {
-    const value = getPttsUrlValue();
-    await savePttsUrl(value);
+if (nebUrlInput) {
+  nebUrlInput.addEventListener("change", async () => {
+    const value = getNebUrlValue();
+    await saveNebUrl(value);
   });
 }
 
@@ -400,56 +400,56 @@ async function readActiveQueue() {
   return stored?.[STORAGE_ACTIVE_QUEUE_KEY] || "";
 }
 
-async function savePttsUrl(value) {
+async function saveNebUrl(value) {
   if (!api.storage?.local) {
     return;
   }
-  await api.storage.local.set({ [STORAGE_PTTS_URL_KEY]: value });
+  await api.storage.local.set({ [STORAGE_NEB_URL_KEY]: value });
 }
 
-async function readPttsUrl() {
+async function readNebUrl() {
   if (!api.storage?.local) {
     return "";
   }
-  const stored = await api.storage.local.get(STORAGE_PTTS_URL_KEY);
-  return stored?.[STORAGE_PTTS_URL_KEY] || "";
+  const stored = await api.storage.local.get(STORAGE_NEB_URL_KEY);
+  return stored?.[STORAGE_NEB_URL_KEY] || "";
 }
 
-async function loadPttsSettings() {
-  if (!pttsUrlInput) {
+async function loadNebSettings() {
+  if (!nebUrlInput) {
     return;
   }
-  const stored = await readPttsUrl();
-  const value = stored.trim() || DEFAULT_PTTS_URL;
-  pttsUrlInput.value = value;
+  const stored = await readNebUrl();
+  const value = stored.trim() || DEFAULT_NEB_URL;
+  nebUrlInput.value = value;
 }
 
-function showPttsSettings() {
-  if (pttsUrlLabel) {
-    pttsUrlLabel.hidden = false;
+function showNebSettings() {
+  if (nebUrlLabel) {
+    nebUrlLabel.hidden = false;
   }
-  if (pttsUrlRow) {
-    pttsUrlRow.hidden = false;
-  }
-}
-
-function hidePttsSettings() {
-  if (pttsUrlLabel) {
-    pttsUrlLabel.hidden = true;
-  }
-  if (pttsUrlRow) {
-    pttsUrlRow.hidden = true;
+  if (nebUrlRow) {
+    nebUrlRow.hidden = false;
   }
 }
 
-function getPttsUrlValue() {
-  if (!pttsUrlInput) {
-    return DEFAULT_PTTS_URL;
+function hideNebSettings() {
+  if (nebUrlLabel) {
+    nebUrlLabel.hidden = true;
   }
-  const value = pttsUrlInput.value.trim();
+  if (nebUrlRow) {
+    nebUrlRow.hidden = true;
+  }
+}
+
+function getNebUrlValue() {
+  if (!nebUrlInput) {
+    return DEFAULT_NEB_URL;
+  }
+  const value = nebUrlInput.value.trim();
   if (!value) {
-    pttsUrlInput.value = DEFAULT_PTTS_URL;
-    return DEFAULT_PTTS_URL;
+    nebUrlInput.value = DEFAULT_NEB_URL;
+    return DEFAULT_NEB_URL;
   }
   return value;
 }
@@ -690,8 +690,8 @@ function setBusy(value) {
 function syncControls() {
   saveButton.disabled = isBusy;
   exportAllButton.disabled = isBusy || items.length === 0;
-  if (sendPttsButton) {
-    sendPttsButton.disabled = isBusy || items.length === 0;
+  if (sendNebButton) {
+    sendNebButton.disabled = isBusy || items.length === 0;
   }
   deleteAllButton.disabled = isBusy || items.length === 0;
   queueSelect.disabled = isBusy || queues.length === 0;
@@ -699,8 +699,8 @@ function syncControls() {
   newQueueButton.disabled = isBusy;
   openRssButton.disabled = isBusy;
   syncRssButton.disabled = isBusy;
-  if (pttsUrlInput) {
-    pttsUrlInput.disabled = isBusy;
+  if (nebUrlInput) {
+    nebUrlInput.disabled = isBusy;
   }
   updateQueueActions();
 }
@@ -728,13 +728,13 @@ function updateQueueActions() {
         syncRssButton,
         openRssButton,
         exportAllButton,
-        sendPttsButton,
+        sendNebButton,
         deleteAllButton,
         saveButton
       ]
     : [
         saveButton,
-        sendPttsButton,
+        sendNebButton,
         exportAllButton,
         deleteAllButton,
         syncRssButton,
@@ -865,7 +865,7 @@ async function init() {
   setBusy(true);
   try {
     setVersionLabel();
-    await loadPttsSettings();
+    await loadNebSettings();
     await loadQueues({ initial: true });
     await loadItems({ quiet: true });
     setReadyStatus();
