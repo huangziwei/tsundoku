@@ -15,8 +15,8 @@ const openRssButton = document.getElementById("open-rss");
 const syncRssButton = document.getElementById("sync-rss");
 const toolbarEl = document.getElementById("queue-toolbar");
 const nebUrlInput = document.getElementById("neb-url");
-const nebUrlLabel = document.getElementById("neb-url-label");
-const nebUrlRow = document.getElementById("neb-url-row");
+const settingsToggle = document.getElementById("settings-toggle");
+const settingsPanel = document.getElementById("settings-panel");
 
 let items = [];
 let queues = [];
@@ -171,6 +171,15 @@ if (nebUrlInput) {
   nebUrlInput.addEventListener("change", async () => {
     const value = getNebUrlValue();
     await saveNebUrl(value);
+    checkNebAvailable();
+  });
+}
+
+if (settingsToggle) {
+  settingsToggle.addEventListener("click", () => {
+    if (settingsPanel) {
+      settingsPanel.hidden = !settingsPanel.hidden;
+    }
   });
 }
 
@@ -425,20 +434,29 @@ async function loadNebSettings() {
 }
 
 function showNebSettings() {
-  if (nebUrlLabel) {
-    nebUrlLabel.hidden = false;
-  }
-  if (nebUrlRow) {
-    nebUrlRow.hidden = false;
+  if (settingsPanel) {
+    settingsPanel.hidden = false;
   }
 }
 
 function hideNebSettings() {
-  if (nebUrlLabel) {
-    nebUrlLabel.hidden = true;
+  if (settingsPanel) {
+    settingsPanel.hidden = true;
   }
-  if (nebUrlRow) {
-    nebUrlRow.hidden = true;
+}
+
+async function checkNebAvailable() {
+  const nebUrl = getNebUrlValue();
+  try {
+    const response = await api.runtime.sendMessage({
+      type: "neb/ping",
+      nebUrl
+    });
+    if (response?.ok && sendNebButton) {
+      sendNebButton.hidden = false;
+    }
+  } catch (error) {
+    // neb not available, button stays hidden
   }
 }
 
@@ -638,7 +656,7 @@ async function deleteItem(id) {
 
 function updateCount() {
   const label = items.length === 1 ? "1 item" : `${items.length} items`;
-  countEl.textContent = label;
+  countEl.textContent = `\u00b7 ${label}`;
   syncControls();
 }
 
@@ -866,6 +884,7 @@ async function init() {
   try {
     setVersionLabel();
     await loadNebSettings();
+    checkNebAvailable();
     await loadQueues({ initial: true });
     await loadItems({ quiet: true });
     setReadyStatus();

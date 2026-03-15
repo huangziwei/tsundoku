@@ -227,6 +227,23 @@ button:disabled {
   color: var(--accent-2);
 }
 
+.queue-count {
+  color: var(--muted);
+}
+
+#settings-panel {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
+  background: var(--bg);
+}
+
+#settings-panel .small {
+  margin-bottom: 4px;
+  display: block;
+}
+
 .input {
   width: 100%;
   padding: 10px 12px;

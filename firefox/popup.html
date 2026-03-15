@@ -11,10 +11,25 @@
       <div class="panel">
         <div class="row space-between">
           <h1>Tsundoku <span class="version" id="app-version" hidden></span></h1>
-          <span class="badge" id="queue-count">0 items</span>
+          <button class="ghost icon-button" id="settings-toggle" type="button" aria-label="Settings" title="Settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54A.48.48 0 0 0 13.93 2h-3.84a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z" fill="currentColor"/>
+            </svg>
+          </button>
         </div>
         <p>Save the current page and export your reading queue.</p>
-        <label class="small" for="queue-select">Queue</label>
+        <div id="settings-panel" hidden>
+          <label class="small" for="neb-url">Neb URL</label>
+          <div class="row queue-row">
+            <input
+              class="input"
+              id="neb-url"
+              type="url"
+              placeholder="http://localhost:1912"
+            />
+          </div>
+        </div>
+        <label class="small" for="queue-select">Queue <span class="queue-count" id="queue-count">· 0 items</span></label>
         <div class="row queue-row">
           <select class="input" id="queue-select"></select>
           <button class="ghost" id="rename-queue">Rename</button>
@@ -22,20 +37,11 @@
         </div>
         <div class="toolbar" id="queue-toolbar">
           <button class="primary" id="save-page">Save page</button>
-          <button class="secondary" id="send-neb">Send to Neb</button>
+          <button class="secondary" id="send-neb" hidden>Send to Neb</button>
           <button class="secondary" id="sync-rss" hidden>Sync RSS</button>
           <button class="secondary" id="open-rss" hidden>Manage RSS</button>
           <button class="secondary" id="export-all">Export EPUB</button>
           <button class="ghost" id="delete-all">Delete all</button>
-        </div>
-        <label class="small" id="neb-url-label" for="neb-url" hidden>Neb URL</label>
-        <div class="row queue-row" id="neb-url-row" hidden>
-          <input
-            class="input"
-            id="neb-url"
-            type="url"
-            placeholder="http://localhost:1912"
-          />
         </div>
         <div class="status" id="status">Idle</div>
       </div>

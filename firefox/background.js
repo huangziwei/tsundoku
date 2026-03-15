@@ -80,6 +80,8 @@ async function handleMessage(message) {
       return exportQueue(message);
     case "queue/export-neb":
       return exportQueueToNeb(message);
+    case "neb/ping":
+      return pingNeb(message.nebUrl);
     case "queues/list":
       return listQueuesMessage();
     case "queues/create":
@@ -547,6 +549,22 @@ async function uploadEpubToNeb({
     title: payload?.title,
     nebUrl: normalized
   };
+}
+
+async function pingNeb(nebUrl) {
+  const normalized = normalizeNebUrl(nebUrl);
+  if (!normalized) {
+    return { ok: false };
+  }
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2000);
+    await fetch(normalized, { method: "HEAD", signal: controller.signal });
+    clearTimeout(timer);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false };
+  }
 }
 
 function normalizeNebUrl(value) {
